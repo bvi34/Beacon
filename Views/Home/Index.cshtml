@@ -1,0 +1,797 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beacon Monitoring System</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-purple: #8B5CF6;
+            --primary-gray: #6B7280;
+            --bg-light: #F8FAFC;
+            --bg-dark: #1E293B;
+            --card-light: #FFFFFF;
+            --card-dark: #334155;
+            --text-light: #1F2937;
+            --text-dark: #F1F5F9;
+            --border-light: #E5E7EB;
+            --border-dark: #475569;
+            --online-green: #10B981;
+            --offline-red: #EF4444;
+            --warning-yellow: #F59E0B;
+            --beacon-glow: radial-gradient(circle, rgba(139,92,246,0.3) 0%, rgba(139,92,246,0.1) 50%, transparent 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-light);
+            transition: all 0.3s ease;
+        }
+
+            body.dark {
+                background: var(--bg-dark);
+                color: var(--text-dark);
+            }
+
+        .header {
+            background: var(--card-light);
+            border-bottom: 1px solid var(--border-light);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        body.dark .header {
+            background: var(--card-dark);
+            border-bottom: 1px solid var(--border-dark);
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .beacon-logo {
+            width: 40px;
+            height: 40px;
+            background: var(--beacon-glow);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+
+        @@keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+        }
+
+        .beacon-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(45deg, var(--primary-purple), var(--primary-gray));
+            border-radius: 50%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            background: linear-gradient(45deg, var(--primary-purple), var(--primary-gray));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--primary-purple);
+            color: white;
+        }
+
+            .btn-primary:hover {
+                background: #7C3AED;
+                transform: translateY(-1px);
+            }
+
+        .btn-secondary {
+            background: var(--primary-gray);
+            color: white;
+        }
+
+            .btn-secondary:hover {
+                background: #4B5563;
+                transform: translateY(-1px);
+            }
+
+        .theme-toggle {
+            background: var(--card-light);
+            border: 2px solid var(--border-light);
+            color: var(--text-light);
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        body.dark .theme-toggle {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+            color: var(--text-dark);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--card-light);
+            border: 1px solid var(--border-light);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body.dark .metric-card {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-purple);
+        }
+
+        .metric-card.online::before {
+            background: var(--online-green);
+        }
+
+        .metric-card.offline::before {
+            background: var(--offline-red);
+        }
+
+        .metric-card.warning::before {
+            background: var(--warning-yellow);
+        }
+
+        .metric-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--primary-gray);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--card-light);
+            border: 1px solid var(--border-light);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        body.dark .chart-card {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--primary-purple);
+        }
+
+        .device-list {
+            background: var(--card-light);
+            border: 1px solid var(--border-light);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        body.dark .device-list {
+            background: var(--card-dark);
+            border-color: var(--border-dark);
+        }
+
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-light);
+            transition: background 0.2s ease;
+        }
+
+        body.dark .device-item {
+            border-bottom-color: var(--border-dark);
+        }
+
+        .device-item:hover {
+            background: rgba(139,92,246,0.05);
+        }
+
+        .device-item:last-child {
+            border-bottom: none;
+        }
+
+        .device-info h4 {
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .device-info p {
+            font-size: 0.8rem;
+            color: var(--primary-gray);
+        }
+
+        .device-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-online {
+            background: rgba(16,185,129,0.1);
+            color: var(--online-green);
+        }
+
+        .status-offline {
+            background: rgba(239,68,68,0.1);
+            color: var(--offline-red);
+        }
+
+        .status-warning {
+            background: rgba(245,158,11,0.1);
+            color: var(--warning-yellow);
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: var(--card-light);
+            margin: 5% auto;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        body.dark .modal-content {
+            background: var(--card-dark);
+        }
+
+        @@keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-purple);
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--primary-gray);
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .close:hover {
+            background: rgba(139,92,246,0.1);
+            color: var(--primary-purple);
+        }
+
+        .discovery-content {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .discovery-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-light);
+            border-top: 4px solid var(--primary-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        body.dark .discovery-spinner {
+            border-color: var(--border-dark);
+            border-top-color: var(--primary-purple);
+        }
+
+        @@keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .discovered-devices {
+            margin-top: 1.5rem;
+        }
+
+        .discovered-device {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border: 1px solid var(--border-light);
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        body.dark .discovered-device {
+            border-color: var(--border-dark);
+        }
+
+        .discovered-device:hover {
+            background: rgba(139,92,246,0.05);
+        }
+
+        @@media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .chart-section {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                margin: 10% auto;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo-section">
+            <div class="beacon-logo">
+                <div class="beacon-icon"></div>
+            </div>
+            <h1>Beacon Monitoring System</h1>
+        </div>
+        <div class="controls">
+            <button class="btn btn-primary">Add Device</button>
+            <button class="btn btn-secondary" onclick="showDiscoveryModal()">
+                🔍 Discover Devices
+            </button>
+            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="metrics-grid">
+            <div class="metric-card online">
+                <div class="metric-number">12</div>
+                <div class="metric-label">Devices Online</div>
+            </div>
+            <div class="metric-card offline">
+                <div class="metric-number">3</div>
+                <div class="metric-label">Devices Offline</div>
+            </div>
+            <div class="metric-card warning">
+                <div class="metric-number">2</div>
+                <div class="metric-label">Certificates Expiring</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number">5</div>
+                <div class="metric-label">Active Alerts</div>
+            </div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-card">
+                <h3 class="chart-title">Device Status Over Time</h3>
+                <canvas id="statusChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3 class="chart-title">Device Distribution</h3>
+                <canvas id="distributionChart"></canvas>
+            </div>
+        </div>
+
+        <div class="device-list">
+            <h3 class="chart-title">Recent Device Activity</h3>
+            <div class="device-item">
+                <div class="device-info">
+                    <h4>web-server-01</h4>
+                    <p>192.168.1.100 • Last seen: 2 minutes ago</p>
+                </div>
+                <div class="device-status status-online">Online</div>
+            </div>
+            <div class="device-item">
+                <div class="device-info">
+                    <h4>database-primary</h4>
+                    <p>192.168.1.101 • Last seen: 5 minutes ago</p>
+                </div>
+                <div class="device-status status-online">Online</div>
+            </div>
+            <div class="device-item">
+                <div class="device-info">
+                    <h4>backup-server</h4>
+                    <p>192.168.1.102 • Last seen: 2 hours ago</p>
+                </div>
+                <div class="device-status status-warning">Stale</div>
+            </div>
+            <div class="device-item">
+                <div class="device-info">
+                    <h4>legacy-system</h4>
+                    <p>192.168.1.103 • Last seen: 1 day ago</p>
+                </div>
+                <div class="device-status status-offline">Offline</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Discovery Modal -->
+    <div id="discoveryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Device Discovery</h2>
+                <button class="close" onclick="closeDiscoveryModal()">&times;</button>
+            </div>
+            <div class="discovery-content">
+                <div id="discoveryLoading" style="display: none;">
+                    <div class="discovery-spinner"></div>
+                    <p>Scanning network for devices...</p>
+                </div>
+                <div id="discoveryResults" style="display: none;">
+                    <h3>Discovered Devices</h3>
+                    <div class="discovered-devices" id="discoveredDevicesList">
+                        <!-- Discovered devices will be populated here -->
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <button class="btn btn-primary" onclick="addSelectedDevices()">Add Selected Devices</button>
+                        <button class="btn btn-secondary" onclick="startDiscovery()">Scan Again</button>
+                    </div>
+                </div>
+                <div id="discoveryStart">
+                    <p>Click the button below to start scanning your network for beacon devices.</p>
+                    <button class="btn btn-primary" onclick="startDiscovery()" style="margin-top: 1rem;">Start Discovery</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Theme toggle functionality
+        function toggleTheme() {
+            document.body.classList.toggle('dark');
+            const themeToggle = document.querySelector('.theme-toggle');
+            themeToggle.textContent = document.body.classList.contains('dark') ? '☀️' : '🌙';
+
+            // Update charts for theme
+            updateChartThemes();
+        }
+
+        // Discovery Modal Functions
+        function showDiscoveryModal() {
+            document.getElementById('discoveryModal').style.display = 'block';
+            document.getElementById('discoveryStart').style.display = 'block';
+            document.getElementById('discoveryLoading').style.display = 'none';
+            document.getElementById('discoveryResults').style.display = 'none';
+        }
+
+        function closeDiscoveryModal() {
+            document.getElementById('discoveryModal').style.display = 'none';
+        }
+
+        function startDiscovery() {
+            document.getElementById('discoveryStart').style.display = 'none';
+            document.getElementById('discoveryResults').style.display = 'none';
+            document.getElementById('discoveryLoading').style.display = 'block';
+
+            // Simulate discovery process - replace this with your actual API call
+            setTimeout(() => {
+                simulateDiscoveryResults();
+            }, 3000);
+
+            // TODO: Replace with actual API call to your discovery endpoint
+            // Example:
+            // fetch('/api/devices/discover')
+            //     .then(response => response.json())
+            //     .then(data => {
+            //         displayDiscoveryResults(data);
+            //     })
+            //     .catch(error => {
+            //         console.error('Discovery failed:', error);
+            //         // Handle error
+            //     });
+        }
+
+        function simulateDiscoveryResults() {
+            // Mock discovered devices - replace with actual API response handling
+            const mockDevices = [
+                { name: 'sensor-device-04', ip: '192.168.1.104', type: 'Temperature Sensor', status: 'Available' },
+                { name: 'camera-system-02', ip: '192.168.1.105', type: 'Security Camera', status: 'Available' },
+                { name: 'access-point-01', ip: '192.168.1.106', type: 'WiFi Access Point', status: 'Available' }
+            ];
+
+            displayDiscoveryResults(mockDevices);
+        }
+
+        function displayDiscoveryResults(devices) {
+            document.getElementById('discoveryLoading').style.display = 'none';
+            document.getElementById('discoveryResults').style.display = 'block';
+
+            const devicesList = document.getElementById('discoveredDevicesList');
+            devicesList.innerHTML = '';
+
+            devices.forEach(device => {
+                const deviceElement = document.createElement('div');
+                deviceElement.className = 'discovered-device';
+                deviceElement.innerHTML = `
+                    <div>
+                        <input type="checkbox" id="device-${device.ip}" value="${device.ip}" style="margin-right: 0.5rem;">
+                        <label for="device-${device.ip}">
+                            <strong>${device.name}</strong><br>
+                            <small>${device.ip} • ${device.type}</small>
+                        </label>
+                    </div>
+                    <div class="device-status status-online">${device.status}</div>
+                `;
+                devicesList.appendChild(deviceElement);
+            });
+        }
+
+        function addSelectedDevices() {
+            const checkboxes = document.querySelectorAll('#discoveredDevicesList input[type="checkbox"]:checked');
+            const selectedDevices = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedDevices.length > 0) {
+                // TODO: Send selected devices to your backend API
+                console.log('Adding devices:', selectedDevices);
+                
+                // Example API call:
+                // fetch('/api/devices/add', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ devices: selectedDevices })
+                // });
+                
+                alert(`Added ${selectedDevices.length} device(s) to monitoring.`);
+                closeDiscoveryModal();
+                
+                // Refresh the page or update the device list
+                // location.reload();
+            } else {
+                alert('Please select at least one device to add.');
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('discoveryModal');
+            if (event.target === modal) {
+                closeDiscoveryModal();
+            }
+        }
+
+        // Chart.js configuration
+        Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+        Chart.defaults.color = '#6B7280';
+
+        // Status over time chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusChart = new Chart(statusCtx, {
+            type: 'line',
+            data: {
+                labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
+                datasets: [{
+                    label: 'Online Devices',
+                    data: [8, 12, 15, 18, 16, 14, 12],
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16,185,129,0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Offline Devices',
+                    data: [4, 2, 1, 0, 2, 3, 3],
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                }
+            }
+        });
+
+        // Distribution pie chart
+        const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+        const distributionChart = new Chart(distributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Online', 'Offline', 'Warning'],
+                datasets: [{
+                    data: [12, 3, 2],
+                    backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+                    borderWidth: 0,
+                    cutout: '70%'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
+        });
+
+        function updateChartThemes() {
+            const isDark = document.body.classList.contains('dark');
+            const textColor = isDark ? '#F1F5F9' : '#6B7280';
+            const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+            Chart.defaults.color = textColor;
+
+            statusChart.options.scales.y.grid.color = gridColor;
+            statusChart.options.scales.x.grid.color = gridColor;
+            statusChart.update();
+
+            distributionChart.update();
+        }
+
+        // Simulate real-time updates
+        setInterval(function () {
+            const metrics = document.querySelectorAll('.metric-number');
+            metrics.forEach(function (metric) {
+                const currentValue = parseInt(metric.textContent);
+                const change = Math.random() > 0.5 ? 1 : -1;
+                const newValue = Math.max(0, currentValue + (Math.random() > 0.8 ? change : 0));
+                metric.textContent = newValue;
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

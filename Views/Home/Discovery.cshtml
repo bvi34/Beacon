@@ -1,0 +1,15 @@
+﻿@page
+@model Beacon.Views.Home.DiscoveryModel
+@{
+    ViewData["Title"] = "Network Discovery";
+}
+
+<div id="network-discovery-root"></div>
+
+@section Scripts {
+    <script src="~/js/components/NetworkDiscovery.jsx"></script>
+    <script>
+        ReactDOM.render(React.createElement(NetworkDiscovery),
+            document.getElementById('network-discovery-root'));
+    </script>
+}
