@@ -46,6 +46,7 @@ namespace Beacon.Data
                       .HasForeignKey(d => d.DeviceId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
+
         }
     }
 }

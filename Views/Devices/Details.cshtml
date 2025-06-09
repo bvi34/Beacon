@@ -4,91 +4,99 @@
     ViewData["Title"] = "Device Details";
 }
 
-<div class="container">
+<div class="container-fluid">
     <div class="row mb-4">
-        <div class="col-md-8">
-            <h2><i class="fas fa-server"></i> Device Details</h2>
+        <div class="col">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a asp-action="Index">Devices</a></li>
+                    <li class="breadcrumb-item"><a href="@Url.Action("Index")">Devices</a></li>
                     <li class="breadcrumb-item active">@Model.Hostname</li>
                 </ol>
             </nav>
+            <h1 class="display-4">@Model.Hostname</h1>
+            <p class="lead">Device Details and Monitoring Information</p>
         </div>
-        <div class="col-md-4 text-end">
-            <a asp-action="Index" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> Back to List
+        <div class="col-auto">
+            <button class="btn btn-outline-primary me-2" onclick="pingDevice()">
+                <i class="fas fa-satellite-dish"></i> Ping Device
+            </button>
+            <a href="@Url.Action("Delete", new { id = Model.Id })" class="btn btn-outline-danger">
+                <i class="fas fa-trash"></i> Delete Device
             </a>
         </div>
     </div>
 
     <div class="row">
+        <!-- Device Information -->
         <div class="col-md-6">
-            <!-- Device Information Card -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-info-circle"></i> Device Information
+                        <i class="fas fa-server"></i> Device Information
                     </h5>
                 </div>
                 <div class="card-body">
                     <dl class="row">
-                        <dt class="col-sm-4">Hostname:</dt>
-                        <dd class="col-sm-8"><strong>@Model.Hostname</strong></dd>
-
-                        <dt class="col-sm-4">IP Address:</dt>
-                        <dd class="col-sm-8"><code>@Model.IpAddress</code></dd>
-
                         <dt class="col-sm-4">Status:</dt>
                         <dd class="col-sm-8">
                             @switch (Model.Status)
                             {
-                                case DeviceStatus.Online:
+                                case Beacon.Models.DeviceStatus.Online:
                                     <span class="badge bg-success fs-6">
-                                        <i class="fas fa-circle"></i> Online
+                                        <i class="fas fa-check-circle"></i> Online
                                     </span>
                                     break;
-                                case DeviceStatus.Offline:
+                                case Beacon.Models.DeviceStatus.Offline:
                                     <span class="badge bg-danger fs-6">
-                                        <i class="fas fa-circle"></i> Offline
-                                    </span>
-                                    break;
-                                case DeviceStatus.Warning:
-                                    <span class="badge bg-warning fs-6">
-                                        <i class="fas fa-exclamation-triangle"></i> Warning
-                                    </span>
-                                    break;
-                                case DeviceStatus.Critical:
-                                    <span class="badge bg-danger fs-6">
-                                        <i class="fas fa-exclamation-circle"></i> Critical
+                                        <i class="fas fa-times-circle"></i> Offline
                                     </span>
                                     break;
                                 default:
-                                    <span class="badge bg-secondary fs-6">
+                                    <span class="badge bg-warning fs-6">
                                         <i class="fas fa-question-circle"></i> Unknown
                                     </span>
                                     break;
                             }
                         </dd>
 
+                        <dt class="col-sm-4">Hostname:</dt>
+                        <dd class="col-sm-8"><strong>@Model.Hostname</strong></dd>
+
+                        <dt class="col-sm-4">IP Address:</dt>
+                        <dd class="col-sm-8"><code>@Model.IpAddress</code></dd>
+
                         <dt class="col-sm-4">Last Seen:</dt>
                         <dd class="col-sm-8">
-                            @Model.LastSeen.ToString("yyyy-MM-dd HH:mm:ss") UTC
-                            <br><small class="text-muted">@GetTimeSinceLastSeen(Model.LastSeen)</small>
+                            @if (Model.LastSeen.HasValue)
+                            {
+                                <span title="@Model.LastSeen.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")">
+                                    @Model.LastSeen.Value.ToString("yyyy-MM-dd HH:mm:ss UTC")
+                                </span>
+                                <small class="text-muted">
+                                    (@((DateTime.UtcNow - Model.LastSeen.Value).TotalMinutes < 1 ? "Just now" :
+                                       (DateTime.UtcNow - Model.LastSeen.Value).TotalHours < 1 ? $"{(int)(DateTime.UtcNow - Model.LastSeen.Value).TotalMinutes} minutes ago" :
+                                       (DateTime.UtcNow - Model.LastSeen.Value).TotalDays < 1 ? $"{(int)(DateTime.UtcNow - Model.LastSeen.Value).TotalHours} hours ago" :
+                                       $"{(int)(DateTime.UtcNow - Model.LastSeen.Value).TotalDays} days ago"))
+                                </small>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Never</span>
+                            }
                         </dd>
 
-                        <dt class="col-sm-4">First Discovered:</dt>
-                        <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</dd>
+                        <dt class="col-sm-4">Created:</dt>
+                        <dd class="col-sm-8">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss UTC")</dd>
 
-                        <dt class="col-sm-4">Last Updated:</dt>
-                        <dd class="col-sm-8">@Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</dd>
+                        <dt class="col-sm-4">Updated:</dt>
+                        <dd class="col-sm-8">@Model.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss UTC")</dd>
                     </dl>
                 </div>
             </div>
         </div>
 
+        <!-- Quick Actions -->
         <div class="col-md-6">
-            <!-- Quick Actions Card -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
@@ -97,170 +105,218 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-outline-primary" onclick="pingDevice('@Model.IpAddress')">
+                        <button class="btn btn-outline-primary" onclick="pingDevice()">
                             <i class="fas fa-satellite-dish"></i> Ping Device
                         </button>
-                        <button class="btn btn-outline-info" onclick="scanPorts('@Model.IpAddress')">
+                        <button class="btn btn-outline-info" onclick="scanPorts()">
                             <i class="fas fa-search"></i> Scan Ports
                         </button>
-                        <button class="btn btn-outline-success" onclick="checkCertificates('@Model.IpAddress')">
-                            <i class="fas fa-certificate"></i> Check Certificates
+                        <button class="btn btn-outline-secondary" onclick="updateStatus()">
+                            <i class="fas fa-sync-alt"></i> Update Status
                         </button>
-                        <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">
-                            <i class="fas fa-trash"></i> Delete Device
-                        </a>
                     </div>
+                    <div id="actionResult" class="mt-3"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Monitored Ports Card -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-plug"></i> Monitored Ports
-                        <span class="badge bg-primary">@Model.MonitoredPorts.Count</span>
-                    </h5>
-                </div>
-                <div class="card-body">
-                    @if (Model.MonitoredPorts.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Port</th>
-                                        <th>Protocol</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var port in Model.MonitoredPorts)
-                                    {
-                                        <tr>
-                                            <td><code>@port.Port</code></td>
-                                            <td>@port.Protocol</td>
-                                            <td>
-                                                <span class="badge bg-info">@port.Status</span>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-center text-muted py-3">
-                            <i class="fas fa-plug fa-2x mb-2"></i>
-                            <p>No monitored ports configured</p>
-                        </div>
-                    }
-                </div>
-            </div>
+    <!-- Monitored Ports -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-plug"></i> Monitored Ports
+                @if (Model.MonitoredPorts?.Any() == true)
+                {
+                    <span class="badge bg-info ms-2">@Model.MonitoredPorts.Count()</span>
+                }
+            </h5>
         </div>
+        <div class="card-body">
+            @if (Model.MonitoredPorts?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Protocol</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Last Checked</th>
+                                <th>Enabled</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var port in Model.MonitoredPorts.OrderBy(p => p.Port))
+                            {
+                                <tr>
+                                    <td><strong>@port.Port</strong></td>
+                                    <td>@port.Protocol</td>
+                                    <td>@port.ServiceName</td>
+                                    <td>
+                                        @switch (port.Status)
+                                        {
+                                            case Beacon.Models.PortStatus.Open:
+                                                <span class="badge bg-success">Open</span>
+                                                break;
+                                            case Beacon.Models.PortStatus.Closed:
+                                                <span class="badge bg-danger">Closed</span>
+                                                break;
+                                            case Beacon.Models.PortStatus.Filtered:
+                                                <span class="badge bg-warning">Filtered</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-secondary">Unknown</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (port.LastChecked.HasValue)
+                                        {
+                                            <small>@port.LastChecked.Value.ToString("yyyy-MM-dd HH:mm")</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">Never</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (port.IsEnabled)
+                                        {
+                                            <i class="fas fa-check text-success"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-times text-danger"></i>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="fas fa-plug fa-2x text-muted mb-3"></i>
+                    <h6 class="text-muted">No monitored ports</h6>
+                    <p class="text-muted small">Run a port scan to discover and monitor ports on this device.</p>
+                    <button class="btn btn-outline-primary btn-sm" onclick="scanPorts()">
+                        <i class="fas fa-search"></i> Scan Ports
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
 
-        <!-- Certificates Card -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="fas fa-certificate"></i> SSL Certificates
-                        <span class="badge bg-primary">@Model.Certificates.Count</span>
-                    </h5>
+    <!-- SSL Certificates -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-certificate"></i> SSL Certificates
+                @if (Model.Certificates?.Any() == true)
+                {
+                    <span class="badge bg-info ms-2">@Model.Certificates.Count()</span>
+                }
+            </h5>
+        </div>
+        <div class="card-body">
+            @if (Model.Certificates?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Issuer</th>
+                                <th>Valid From</th>
+                                <th>Valid To</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cert in Model.Certificates)
+                            {
+                                <tr>
+                                    <td>@cert.CommonName</td>
+                                    <td>@cert.Issuer</td>
+                                    <td>@cert.IssuedDate.ToString("yyyy-MM-dd")</td>
+                                    <td>@cert.ExpiryDate.ToString("yyyy-MM-dd")</td>
+                                    <td>
+                                        @if (cert.ExpiryDate > DateTime.UtcNow)
+                                        {
+                                            if (cert.ExpiryDate.Subtract(DateTime.UtcNow).TotalDays < 30)
+                                            {
+                                                <span class="badge bg-warning">Expires Soon</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">Valid</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">Expired</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-                <div class="card-body">
-                    @if (Model.Certificates.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Subject</th>
-                                        <th>Expires</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var cert in Model.Certificates)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <small>@cert.Subject</small>
-                                            </td>
-                                            <td>
-                                                <small>@cert.ExpiryDate.ToString("yyyy-MM-dd")</small>
-                                            </td>
-                                            <td>
-                                                @if (cert.ExpiryDate < DateTime.UtcNow)
-                                                {
-                                                    <span class="badge bg-danger">Expired</span>
-                                                }
-                                                else if (cert.ExpiryDate < DateTime.UtcNow.AddDays(30))
-                                                {
-                                                    <span class="badge bg-warning">Expiring Soon</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-success">Valid</span>
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-center text-muted py-3">
-                            <i class="fas fa-certificate fa-2x mb-2"></i>
-                            <p>No SSL certificates found</p>
-                        </div>
-                    }
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="fas fa-certificate fa-2x text-muted mb-3"></i>
+                    <h6 class="text-muted">No SSL certificates</h6>
+                    <p class="text-muted small">SSL certificates will be discovered automatically when scanning HTTPS ports.</p>
                 </div>
-            </div>
+            }
         </div>
     </div>
 </div>
 
-@functions {
-    private string GetTimeSinceLastSeen(DateTime lastSeen)
-    {
-        var timeSpan = DateTime.UtcNow - lastSeen;
+<script>
+    async function pingDevice() {
+        const resultDiv = document.getElementById('actionResult');
+        resultDiv.innerHTML = '<div class="alert alert-info">Pinging device...</div>';
 
-        if (timeSpan.TotalMinutes < 1)
-            return "Just now";
-        else if (timeSpan.TotalMinutes < 60)
-            return $"{(int)timeSpan.TotalMinutes} minutes ago";
-        else if (timeSpan.TotalHours < 24)
-            return $"{(int)timeSpan.TotalHours} hours ago";
-        else
-            return $"{(int)timeSpan.TotalDays} days ago";
+        try {
+            const response = await fetch(`/Devices/api/devices/@Model.Id/ping`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.isReachable) {
+                resultDiv.innerHTML = `<div class="alert alert-success alert-dismissible fade show">
+                    <strong>Success!</strong> Device is reachable. Response time: ${data.responseTime}ms
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            } else {
+                resultDiv.innerHTML = `<div class="alert alert-warning alert-dismissible fade show">
+                    <strong>Warning:</strong> Device is not reachable. Status: ${data.status}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            }
+
+            setTimeout(() => location.reload(), 2000);
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="alert alert-danger alert-dismissible fade show">
+                <strong>Error:</strong> Failed to ping device. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        }
     }
-}
 
-@section Scripts {
-    <script>
-        function pingDevice(ipAddress) {
-            // This would call your API to ping the device
-            alert(`Pinging ${ipAddress}...`);
-            // TODO: Implement actual ping functionality
-        }
+    function scanPorts() {
+        const resultDiv = document.getElementById('actionResult');
+        resultDiv.innerHTML = '<div class="alert alert-info">Port scanning feature coming soon...</div>';
+    }
 
-        function scanPorts(ipAddress) {
-            // This would call your API to scan ports
-            alert(`Scanning ports for ${ipAddress}...`);
-            // TODO: Implement actual port scanning
-        }
-
-        function checkCertificates(ipAddress) {
-            // This would call your API to check certificates
-            alert(`Checking certificates for ${ipAddress}...`);
-            // TODO: Implement actual certificate checking
-        }
-    </script>
-}
+    function updateStatus() {
+        pingDevice(); // For now, just ping the device
+    }
+</script>

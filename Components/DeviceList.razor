@@ -44,7 +44,7 @@
                                     </td>
                                     <td>@device.Hostname</td>
                                     <td>@device.IpAddress</td>
-                                    <td>@device.LastSeen.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@(device.LastSeen?.ToString("yyyy-MM-dd HH:mm") ?? "Never")</td>
                                     <td>@device.MonitoredPorts.Count</td>
                                     <td>@device.Certificates.Count</td>
                                     <td>

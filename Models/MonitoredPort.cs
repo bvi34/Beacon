@@ -24,7 +24,7 @@ namespace Beacon.Models
 
         public PortStatus Status { get; set; } = PortStatus.Unknown;
 
-        public DateTime LastChecked { get; set; }
+        public DateTime? LastChecked { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

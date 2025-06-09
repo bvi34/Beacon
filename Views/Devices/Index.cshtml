@@ -1,58 +1,581 @@
 ﻿@model IEnumerable<Beacon.Models.Device>
 
 @{
-    ViewData["Title"] = "Device List";
+    ViewData["Title"] = "Discovered Devices";
 }
+<style>
+    :root {
+        --primary-purple: #8B5CF6;
+        --primary-gray: #6B7280;
+        --bg-light: #F8FAFC;
+        --bg-dark: #1E293B;
+        --card-light: #FFFFFF;
+        --card-dark: #334155;
+        --text-light: #1F2937;
+        --text-dark: #F1F5F9;
+        --border-light: #E5E7EB;
+        --border-dark: #475569;
+        --online-green: #10B981;
+        --offline-red: #EF4444;
+        --warning-yellow: #F59E0B;
+        --beacon-glow: radial-gradient(circle, rgba(139,92,246,0.3) 0%, rgba(139,92,246,0.1) 50%, transparent 100%);
+    }
 
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg-light);
+        color: var(--text-light);
+        transition: all 0.3s ease;
+    }
+
+        body.dark {
+            background: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+    .header {
+        background: var(--card-light);
+        border-bottom: 1px solid var(--border-light);
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    body.dark .header {
+        background: var(--card-dark);
+        border-bottom: 1px solid var(--border-dark);
+    }
+
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .beacon-logo {
+        width: 40px;
+        height: 40px;
+        background: var(--beacon-glow);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: pulse 2s infinite;
+    }
+
+    @@keyframes pulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+        }
+    }
+
+    .beacon-icon {
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(45deg, var(--primary-purple), var(--primary-gray));
+        border-radius: 50%;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        background: linear-gradient(45deg, var(--primary-purple), var(--primary-gray));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-primary {
+        background: var(--primary-purple);
+        color: white;
+    }
+
+        .btn-primary:hover {
+            background: #7C3AED;
+            transform: translateY(-1px);
+        }
+
+    .btn-secondary {
+        background: var(--primary-gray);
+        color: white;
+    }
+
+        .btn-secondary:hover {
+            background: #4B5563;
+            transform: translateY(-1px);
+        }
+
+    .theme-toggle {
+        background: var(--card-light);
+        border: 2px solid var(--border-light);
+        color: var(--text-light);
+        padding: 0.5rem;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    body.dark .theme-toggle {
+        background: var(--card-dark);
+        border-color: var(--border-dark);
+        color: var(--text-dark);
+    }
+
+    .theme-toggle:hover {
+        transform: scale(1.1);
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        background: var(--card-light);
+        border: 1px solid var(--border-light);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    body.dark .metric-card {
+        background: var(--card-dark);
+        border-color: var(--border-dark);
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-purple);
+    }
+
+    .metric-card.online::before {
+        background: var(--online-green);
+    }
+
+    .metric-card.offline::before {
+        background: var(--offline-red);
+    }
+
+    .metric-card.warning::before {
+        background: var(--warning-yellow);
+    }
+
+    .metric-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--primary-gray);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .chart-section {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .chart-card {
+        background: var(--card-light);
+        border: 1px solid var(--border-light);
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    body.dark .chart-card {
+        background: var(--card-dark);
+        border-color: var(--border-dark);
+    }
+
+    .chart-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--primary-purple);
+    }
+
+    .device-list {
+        background: var(--card-light);
+        border: 1px solid var(--border-light);
+        border-radius: 1rem;
+        padding: 1.5rem;
+    }
+
+    body.dark .device-list {
+        background: var(--card-dark);
+        border-color: var(--border-dark);
+    }
+
+    .device-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid var(--border-light);
+        transition: background 0.2s ease;
+    }
+
+    body.dark .device-item {
+        border-bottom-color: var(--border-dark);
+    }
+
+    .device-item:hover {
+        background: rgba(139,92,246,0.05);
+    }
+
+    .device-item:last-child {
+        border-bottom: none;
+    }
+
+    .device-info h4 {
+        margin-bottom: 0.25rem;
+        font-size: 0.9rem;
+    }
+
+    .device-info p {
+        font-size: 0.8rem;
+        color: var(--primary-gray);
+    }
+
+    .device-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-online {
+        background: rgba(16,185,129,0.1);
+        color: var(--online-green);
+    }
+
+    .status-offline {
+        background: rgba(239,68,68,0.1);
+        color: var(--offline-red);
+    }
+
+    .status-warning {
+        background: rgba(245,158,11,0.1);
+        color: var(--warning-yellow);
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+        background: var(--card-light);
+        margin: 5% auto;
+        padding: 2rem;
+        border-radius: 1rem;
+        width: 90%;
+        max-width: 600px;
+        position: relative;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        animation: modalFadeIn 0.3s ease;
+    }
+
+    body.dark .modal-content {
+        background: var(--card-dark);
+    }
+
+    @@keyframes modalFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--primary-purple);
+    }
+
+    .close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--primary-gray);
+        padding: 0.5rem;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
+
+        .close:hover {
+            background: rgba(139,92,246,0.1);
+            color: var(--primary-purple);
+        }
+
+    .discovery-content {
+        text-align: center;
+        padding: 2rem 0;
+    }
+
+    .discovery-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--border-light);
+        border-top: 4px solid var(--primary-purple);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+
+    body.dark .discovery-spinner {
+        border-color: var(--border-dark);
+        border-top-color: var(--primary-purple);
+    }
+
+    @@keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .discovered-devices {
+        margin-top: 1.5rem;
+    }
+
+    .tab-navigation {
+        margin-bottom: 1.5rem;
+    }
+
+    .tab-button {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        color: var(--primary-gray);
+    }
+
+        .tab-button.active {
+            color: var(--primary-purple);
+            border-bottom-color: var(--primary-purple);
+        }
+
+    .discovered-device {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border: 1px solid var(--border-light);
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+        transition: all 0.2s ease;
+    }
+
+    body.dark .discovered-device {
+        border-color: var(--border-dark);
+    }
+
+    .discovered-device:hover {
+        background: rgba(139,92,246,0.05);
+    }
+
+    @@media (max-width: 768px) {
+        .header {
+            padding: 1rem;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .container {
+            padding: 1rem;
+        }
+
+        .chart-section {
+            grid-template-columns: 1fr;
+        }
+
+        .modal-content {
+            margin: 10% auto;
+            padding: 1.5rem;
+        }
+    }
+</style>
 <div class="container-fluid">
     <div class="row mb-4">
-        <div class="col-md-8">
-            <h2><i class="fas fa-network-wired"></i> Discovered Devices</h2>
-            <p class="text-muted">Network devices discovered by Beacon</p>
+        <div class="col">
+            <h1 class="display-4">@ViewData["Title"]</h1>
+            <p class="lead">Network devices discovered by Beacon</p>
         </div>
-        <div class="col-md-4 text-end">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-primary" onclick="refreshDevices()">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
-                <button type="button" class="btn btn-outline-info" onclick="showStatusSummary()">
-                    <i class="fas fa-chart-pie"></i> Summary
-                </button>
-            </div>
+        <div class="col-auto">
+            <button class="btn btn-primary me-2" onclick="refreshDevices()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline-secondary" onclick="showSummary()">
+                <i class="fas fa-chart-bar"></i> Summary
+            </button>
         </div>
     </div>
 
-    <!-- Status Summary Cards -->
-    <div class="row mb-4" id="statusCards" style="display: none;">
+    <!-- Device Statistics Cards -->
+    <div class="row mb-4">
         <div class="col-md-3">
             <div class="card bg-success text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Online</h5>
-                    <h3 id="onlineCount">0</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">@Model.Count(d => d.Status == Beacon.Models.DeviceStatus.Online)</h4>
+                            <p class="card-text">Online</p>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-danger text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Offline</h5>
-                    <h3 id="offlineCount">0</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">@Model.Count(d => d.Status == Beacon.Models.DeviceStatus.Offline)</h4>
+                            <p class="card-text">Offline</p>
+                        </div>
+                        <i class="fas fa-times-circle fa-2x"></i>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-warning text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Warning</h5>
-                    <h3 id="warningCount">0</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">@Model.Count(d => d.Status == Beacon.Models.DeviceStatus.Unknown)</h4>
+                            <p class="card-text">Unknown</p>
+                        </div>
+                        <i class="fas fa-question-circle fa-2x"></i>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-secondary text-white">
+            <div class="card bg-info text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Unknown</h5>
-                    <h3 id="unknownCount">0</h3>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="card-title">@Model.Count()</h4>
+                            <p class="card-text">Total Devices</p>
+                        </div>
+                        <i class="fas fa-server fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add Device Form -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Add Device</h5>
+                </div>
+                <div class="card-body">
+                    <form id="quickAddForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="ipAddress" placeholder="Enter IP Address (e.g., 192.168.1.1)" required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-plus"></i> Quick Add
+                            </button>
+                        </div>
+                    </form>
+                    <div id="addResult" class="mt-2"></div>
                 </div>
             </div>
         </div>
@@ -60,12 +583,15 @@
 
     <!-- Devices Table -->
     <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Device List</h5>
+        </div>
         <div class="card-body">
             @if (Model.Any())
             {
                 <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-striped table-hover">
+                        <thead>
                             <tr>
                                 <th>Status</th>
                                 <th>Hostname</th>
@@ -83,28 +609,18 @@
                                     <td>
                                         @switch (device.Status)
                                         {
-                                            case DeviceStatus.Online:
+                                            case Beacon.Models.DeviceStatus.Online:
                                                 <span class="badge bg-success">
-                                                    <i class="fas fa-circle"></i> Online
+                                                    <i class="fas fa-check-circle"></i> Online
                                                 </span>
                                                 break;
-                                            case DeviceStatus.Offline:
+                                            case Beacon.Models.DeviceStatus.Offline:
                                                 <span class="badge bg-danger">
-                                                    <i class="fas fa-circle"></i> Offline
-                                                </span>
-                                                break;
-                                            case DeviceStatus.Warning:
-                                                <span class="badge bg-warning">
-                                                    <i class="fas fa-exclamation-triangle"></i> Warning
-                                                </span>
-                                                break;
-                                            case DeviceStatus.Critical:
-                                                <span class="badge bg-danger">
-                                                    <i class="fas fa-exclamation-circle"></i> Critical
+                                                    <i class="fas fa-times-circle"></i> Offline
                                                 </span>
                                                 break;
                                             default:
-                                                <span class="badge bg-secondary">
+                                                <span class="badge bg-warning">
                                                     <i class="fas fa-question-circle"></i> Unknown
                                                 </span>
                                                 break;
@@ -117,38 +633,61 @@
                                         <code>@device.IpAddress</code>
                                     </td>
                                     <td>
-                                        <span title="@device.LastSeen.ToString("yyyy-MM-dd HH:mm:ss")">
-                                            @GetTimeSinceLastSeen(device.LastSeen)
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if (device.MonitoredPorts.Any())
+                                        @if (device.LastSeen.HasValue)
                                         {
-                                            <span class="badge bg-info">@device.MonitoredPorts.Count</span>
+                                            <span title="@device.LastSeen.Value.ToString("yyyy-MM-dd HH:mm:ss")">
+                                                @((DateTime.UtcNow - device.LastSeen.Value).TotalMinutes < 1 ? "Just now" :
+                                                    (DateTime.UtcNow - device.LastSeen.Value).TotalHours < 1 ? $"{(int)(DateTime.UtcNow - device.LastSeen.Value).TotalMinutes}m ago" :
+                                                    (DateTime.UtcNow - device.LastSeen.Value).TotalDays < 1 ? $"{(int)(DateTime.UtcNow - device.LastSeen.Value).TotalHours}h ago" :
+                                                    $"{(int)(DateTime.UtcNow - device.LastSeen.Value).TotalDays}d ago")
+                                            </span>
                                         }
                                         else
                                         {
-                                            <span class="text-muted">-</span>
+                                            <span class="text-muted">Never</span>
                                         }
                                     </td>
                                     <td>
-                                        @if (device.Certificates.Any())
+                                        @if (device.MonitoredPorts?.Any() == true)
                                         {
-                                            <span class="badge bg-primary">@device.Certificates.Count</span>
+                                            <span class="badge bg-info">@device.MonitoredPorts.Count()</span>
+                                            @foreach (var port in device.MonitoredPorts.Take(3))
+                                            {
+                                                <small class="text-muted">@port.Port</small>
+                                                if (port != device.MonitoredPorts.Take(3).Last())
+                                                {
+                                                    <text>, </text>
+                                                }
+                                            }
+                                            @if (device.MonitoredPorts.Count() > 3)
+                                            {
+                                                <small class="text-muted">...</small>
+                                            }
                                         }
                                         else
                                         {
-                                            <span class="text-muted">-</span>
+                                            <span class="text-muted">None</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (device.Certificates?.Any() == true)
+                                        {
+                                            <span class="badge bg-secondary">@device.Certificates.Count()</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">None</span>
                                         }
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
-                                            <a asp-action="Details" asp-route-id="@device.Id"
-                                               class="btn btn-outline-primary" title="View Details">
+                                            <button type="button" class="btn btn-outline-primary" onclick="pingDevice(@device.Id)" title="Ping Device">
+                                                <i class="fas fa-satellite-dish"></i>
+                                            </button>
+                                            <a href="@Url.Action("Details", new { id = device.Id })" class="btn btn-outline-info" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a asp-action="Delete" asp-route-id="@device.Id"
-                                               class="btn btn-outline-danger" title="Delete Device">
+                                            <a href="@Url.Action("Delete", new { id = device.Id })" class="btn btn-outline-danger" title="Delete Device">
                                                 <i class="fas fa-trash"></i>
                                             </a>
                                         </div>
@@ -162,81 +701,84 @@
             else
             {
                 <div class="text-center py-5">
-                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                    <h4 class="text-muted">No devices discovered yet</h4>
-                    <p class="text-muted">Beacon is scanning your network for devices. Check back in a few moments.</p>
+                    <i class="fas fa-server fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No devices found</h4>
+                    <p class="text-muted">Add a device using the form above or run network discovery.</p>
                 </div>
             }
         </div>
     </div>
 </div>
 
-@functions {
-    private string GetTimeSinceLastSeen(DateTime lastSeen)
-    {
-        var timeSpan = DateTime.UtcNow - lastSeen;
+<script>
+    // Quick Add Device
+    document.getElementById('quickAddForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const ipAddress = document.getElementById('ipAddress').value;
+        const resultDiv = document.getElementById('addResult');
 
-        if (timeSpan.TotalMinutes < 1)
-            return "Just now";
-        else if (timeSpan.TotalMinutes < 60)
-            return $"{(int)timeSpan.TotalMinutes}m ago";
-        else if (timeSpan.TotalHours < 24)
-            return $"{(int)timeSpan.TotalHours}h ago";
-        else
-            return $"{(int)timeSpan.TotalDays}d ago";
-    }
-}
+        if (!ipAddress) return;
 
-@section Scripts {
-    <script>
-        function refreshDevices() {
-            location.reload();
-        }
+        try {
+            const response = await fetch('/Devices/api/quick-add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ipAddress: ipAddress })
+            });
 
-        function showStatusSummary() {
-            const statusCards = document.getElementById('statusCards');
-            if (statusCards.style.display === 'none') {
-                // Load status summary via AJAX
-                fetch('/Devices/GetStatusSummary')
-                    .then(response => response.json())
-                    .then(data => {
-                        // Reset counts
-                        document.getElementById('onlineCount').textContent = '0';
-                        document.getElementById('offlineCount').textContent = '0';
-                        document.getElementById('warningCount').textContent = '0';
-                        document.getElementById('unknownCount').textContent = '0';
+            const data = await response.json();
 
-                        // Update counts from API
-                        data.forEach(item => {
-                            switch(item.status.toLowerCase()) {
-                                case 'online':
-                                    document.getElementById('onlineCount').textContent = item.count;
-                                    break;
-                                case 'offline':
-                                    document.getElementById('offlineCount').textContent = item.count;
-                                    break;
-                                case 'warning':
-                                    document.getElementById('warningCount').textContent = item.count;
-                                    break;
-                                case 'unknown':
-                                    document.getElementById('unknownCount').textContent = item.count;
-                                    break;
-                            }
-                        });
-
-                        statusCards.style.display = 'block';
-                    })
-                    .catch(error => console.error('Error loading status summary:', error));
+            if (data.success) {
+                resultDiv.innerHTML = `<div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <strong>Success!</strong> ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+                document.getElementById('ipAddress').value = '';
+                setTimeout(() => location.reload(), 2000);
             } else {
-                statusCards.style.display = 'none';
+                resultDiv.innerHTML = `<div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <strong>Notice:</strong> ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
             }
+        } catch (error) {
+            resultDiv.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <strong>Error:</strong> Failed to add device. Please try again.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
         }
+    });
 
-        // Auto-refresh every 30 seconds
-        setInterval(function() {
-            if (document.visibilityState === 'visible') {
-                refreshDevices();
+    // Refresh devices
+    function refreshDevices() {
+        location.reload();
+    }
+
+    // Ping device
+    async function pingDevice(deviceId) {
+        try {
+            const response = await fetch(`/Devices/api/devices/${deviceId}/ping`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.isReachable) {
+                alert(`Device is reachable! Response time: ${data.responseTime}ms`);
+            } else {
+                alert(`Device is not reachable. Status: ${data.status}`);
             }
-        }, 30000);
-    </script>
-}
+
+            setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+            alert('Error pinging device. Please try again.');
+        }
+    }
+
+    // Show summary
+    function showSummary() {
+        // This could open a modal or navigate to a summary page
+        alert('Summary feature coming soon!');
+    }
+</script>
