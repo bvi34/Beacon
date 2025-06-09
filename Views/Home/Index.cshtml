@@ -425,7 +425,25 @@
 
         .discovered-devices {
             margin-top: 1.5rem;
-        }
+        }.tab-navigation {
+    margin-bottom: 1.5rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    color: var(--primary-gray);
+}
+
+.tab-button.active {
+    color: var(--primary-purple);
+    border-bottom-color: var(--primary-purple);
+}
 
         .discovered-device {
             display: flex;
@@ -477,7 +495,7 @@
             <h1>Beacon Monitoring System</h1>
         </div>
         <div class="controls">
-            <button class="btn btn-primary">Add Device</button>
+            <button class="btn btn-primary" onclick="addDeviceModal.show()">Add Device</button>
             <button class="btn btn-secondary" onclick="showDiscoveryModal()">
                 🔍 Discover Devices
             </button>
@@ -659,7 +677,523 @@
                 devicesList.appendChild(deviceElement);
             });
         }
+        // Add Device Modal Component - Complete Implementation
+        class AddDeviceModal {
+            constructor() {
+                this.isVisible = false;
+                this.currentTab = 'quick';
+                this.isLoading = false;
+                this.customPortCounter = 0;
+                this.init();
+            }
 
+            init() {
+                this.createModal();
+                this.attachEventListeners();
+            }
+
+            createModal() {
+                const modalHTML = `
+                <div id="addDeviceModal" class="modal" style="display: none;">
+                    <div class="modal-content" style="max-width: 700px;">
+                        <div class="modal-header">
+                            <h2 class="modal-title">Add Device</h2>
+                            <button class="close" onclick="addDeviceModal.hide()">&times;</button>
+                        </div>
+
+                        <!-- Tab Navigation -->
+                        <div class="tab-navigation" style="display: flex; border-bottom: 2px solid var(--border-light); margin-bottom: 2rem;">
+                            <button class="tab-button active" data-tab="quick" onclick="addDeviceModal.switchTab('quick')">
+                                🚀 Quick Add
+                            </button>
+                            <button class="tab-button" data-tab="manual" onclick="addDeviceModal.switchTab('manual')">
+                                ⚙️ Manual
+                            </button>
+                            <button class="tab-button" data-tab="bulk" onclick="addDeviceModal.switchTab('bulk')">
+                                📋 Bulk Import
+                            </button>
+                        </div>
+
+                        <!-- Quick Add Tab -->
+                        <div id="quickAddTab" class="tab-content">
+                            <div class="form-section">
+                                <h3>Quick Device Add</h3>
+                                <p>Enter an IP address and we'll automatically detect the hostname and scan for common services.</p>
+
+                                <div class="form-group">
+                                    <label for="quickIpAddress">IP Address *</label>
+                                    <input type="text" id="quickIpAddress" placeholder="192.168.1.100" required>
+                                    <small>We'll ping the device and scan common ports automatically</small>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" onclick="addDeviceModal.quickAddDevice()" id="quickAddBtn">
+                                        <span class="btn-text">🔍 Add & Scan Device</span>
+                                        <div class="btn-spinner" style="display: none;">
+                                            <div class="discovery-spinner"></div>
+                                        </div>
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="addDeviceModal.hide()">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Manual Add Tab -->
+                        <div id="manualAddTab" class="tab-content" style="display: none;">
+                            <div class="form-section">
+                                <h3>Manual Device Configuration</h3>
+                                <p>Manually configure device details and specify which ports to monitor.</p>
+
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="manualIpAddress">IP Address *</label>
+                                        <input type="text" id="manualIpAddress" placeholder="192.168.1.100" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="manualHostname">Hostname</label>
+                                        <input type="text" id="manualHostname" placeholder="web-server-01">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Monitored Ports</label>
+                                    <div class="ports-container">
+                                        <div class="common-ports">
+                                            <p><strong>Common Services:</strong></p>
+                                            <div class="port-checkboxes">
+                                                <label><input type="checkbox" value="22" data-service="SSH"> 22 (SSH)</label>
+                                                <label><input type="checkbox" value="80" data-service="HTTP"> 80 (HTTP)</label>
+                                                <label><input type="checkbox" value="443" data-service="HTTPS"> 443 (HTTPS)</label>
+                                                <label><input type="checkbox" value="3389" data-service="RDP"> 3389 (RDP)</label>
+                                                <label><input type="checkbox" value="25" data-service="SMTP"> 25 (SMTP)</label>
+                                                <label><input type="checkbox" value="53" data-service="DNS"> 53 (DNS)</label>
+                                            </div>
+                                        </div>
+
+                                        <div class="custom-ports">
+                                            <p><strong>Custom Ports:</strong></p>
+                                            <div id="customPortsList">
+                                                <!-- Custom ports will be added here -->
+                                            </div>
+                                            <button type="button" class="btn-small" onclick="addDeviceModal.addCustomPort()">
+                                                + Add Custom Port
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" onclick="addDeviceModal.manualAddDevice()" id="manualAddBtn">
+                                        <span class="btn-text">➕ Add Device</span>
+                                        <div class="btn-spinner" style="display: none;">
+                                            <div class="discovery-spinner"></div>
+                                        </div>
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="addDeviceModal.hide()">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Import Tab -->
+                        <div id="bulkAddTab" class="tab-content" style="display: none;">
+                            <div class="form-section">
+                                <h3>Bulk Device Import</h3>
+                                <p>Import multiple devices at once using CSV format or by entering IP addresses.</p>
+
+                                <div class="bulk-options">
+                                    <div class="bulk-option">
+                                        <h4>📝 Text Input</h4>
+                                        <textarea id="bulkTextArea" placeholder="Enter IP addresses, one per line:&#10;192.168.1.100&#10;192.168.1.101&#10;192.168.1.102" rows="6"></textarea>
+                                    </div>
+
+                                    <div class="bulk-option">
+                                        <h4>📁 CSV Upload</h4>
+                                        <input type="file" id="csvFileInput" accept=".csv" onchange="addDeviceModal.handleCsvUpload(event)">
+                                        <small>CSV format: ip_address,hostname (hostname is optional)</small>
+                                        <div id="csvPreview"></div>
+                                    </div>
+                                </div>
+
+                                <div class="form-actions">
+                                    <button class="btn btn-primary" onclick="addDeviceModal.bulkAddDevices()" id="bulkAddBtn">
+                                        <span class="btn-text">📤 Import Devices</span>
+                                        <div class="btn-spinner" style="display: none;">
+                                            <div class="discovery-spinner"></div>
+                                        </div>
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="addDeviceModal.hide()">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Results Display -->
+                        <div id="resultsSection" style="display: none; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-light);">
+                            <h3>Results</h3>
+                            <div id="resultsContent"></div>
+                        </div>
+                    </div>
+                </div>`;
+
+                document.body.insertAdjacentHTML('beforeend', modalHTML);
+            }
+
+            show() {
+                const modal = document.getElementById('addDeviceModal');
+                if (modal) {
+                    modal.style.display = 'block';
+                    this.isVisible = true;
+                    // Reset to quick add tab
+                    this.switchTab('quick');
+                    this.clearForms();
+                }
+            }
+
+            hide() {
+                const modal = document.getElementById('addDeviceModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    this.isVisible = false;
+                    this.hideResults();
+                }
+            }
+
+            switchTab(tabName) {
+                // Hide all tabs
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.style.display = 'none';
+                });
+
+                // Remove active class from all buttons
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                // Show selected tab
+                const targetTab = document.getElementById(tabName + 'AddTab');
+                if (targetTab) {
+                    targetTab.style.display = 'block';
+                }
+
+                const targetButton = document.querySelector(`[data-tab="${tabName}"]`);
+                if (targetButton) {
+                    targetButton.classList.add('active');
+                }
+
+                this.currentTab = tabName;
+                this.hideResults();
+            }
+
+            quickAddDevice() {
+                const ip = document.getElementById('quickIpAddress').value.trim();
+
+                if (!ip) {
+                    alert('Please enter an IP address');
+                    return;
+                }
+
+                if (!this.isValidIP(ip)) {
+                    alert('Please enter a valid IP address');
+                    return;
+                }
+
+                this.setLoadingState('quickAddBtn', true);
+
+                // Simulate API call - replace with actual implementation
+                setTimeout(() => {
+                    this.setLoadingState('quickAddBtn', false);
+                    this.showResults([{
+                        ip: ip,
+                        hostname: 'auto-detected-host',
+                        status: 'success',
+                        message: 'Device added successfully with auto-detected ports: 22 (SSH), 80 (HTTP)',
+                        ports: [
+                            { port: 22, service: 'SSH', status: 'open' },
+                            { port: 80, service: 'HTTP', status: 'open' },
+                            { port: 443, service: 'HTTPS', status: 'closed' }
+                        ]
+                    }]);
+                }, 2000);
+
+                // TODO: Replace with actual API call
+                // this.callAPI('/api/devices/quick-add', { ip: ip });
+            }
+
+            manualAddDevice() {
+                const ip = document.getElementById('manualIpAddress').value.trim();
+                const hostname = document.getElementById('manualHostname').value.trim();
+
+                if (!ip) {
+                    alert('Please enter an IP address');
+                    return;
+                }
+
+                if (!this.isValidIP(ip)) {
+                    alert('Please enter a valid IP address');
+                    return;
+                }
+
+                const selectedPorts = this.getSelectedPorts();
+
+                if (selectedPorts.length === 0) {
+                    alert('Please select at least one port to monitor');
+                    return;
+                }
+
+                this.setLoadingState('manualAddBtn', true);
+
+                // Simulate API call
+                setTimeout(() => {
+                    this.setLoadingState('manualAddBtn', false);
+                    this.showResults([{
+                        ip: ip,
+                        hostname: hostname || 'manual-device',
+                        status: 'success',
+                        message: `Device added successfully with ${selectedPorts.length} monitored ports`,
+                        ports: selectedPorts.map(port => ({
+                            port: port.port,
+                            service: port.service,
+                            status: Math.random() > 0.3 ? 'open' : 'closed'
+                        }))
+                    }]);
+                }, 1500);
+
+                // TODO: Replace with actual API call
+                // this.callAPI('/api/devices/manual-add', { ip, hostname, ports: selectedPorts });
+            }
+
+            bulkAddDevices() {
+                const textInput = document.getElementById('bulkTextArea').value.trim();
+                const csvFile = document.getElementById('csvFileInput').files[0];
+
+                let devices = [];
+
+                if (textInput) {
+                    devices = this.parseTextInput(textInput);
+                } else if (csvFile) {
+                    // For demo, we'll simulate CSV parsing
+                    devices = [
+                        { ip: '192.168.1.100', hostname: 'server-01' },
+                        { ip: '192.168.1.101', hostname: 'server-02' },
+                        { ip: '192.168.1.102', hostname: 'server-03' }
+                    ];
+                }
+
+                if (devices.length === 0) {
+                    alert('Please enter IP addresses or upload a CSV file');
+                    return;
+                }
+
+                this.setLoadingState('bulkAddBtn', true);
+
+                // Simulate bulk processing
+                setTimeout(() => {
+                    this.setLoadingState('bulkAddBtn', false);
+                    const results = devices.map(device => ({
+                        ...device,
+                        status: Math.random() > 0.2 ? 'success' : 'error',
+                        message: Math.random() > 0.2 ? 'Device added successfully' : 'Failed to add device - already exists'
+                    }));
+                    this.showResults(results);
+                }, 3000);
+
+                // TODO: Replace with actual API call
+                // this.callAPI('/api/devices/bulk-add', { devices });
+            }
+
+            addCustomPort() {
+                const customPortsList = document.getElementById('customPortsList');
+                const portId = 'customPort' + (++this.customPortCounter);
+
+                const portRow = document.createElement('div');
+                portRow.className = 'custom-port-row';
+                portRow.innerHTML = `
+                    <input type="number" id="${portId}" placeholder="Port number" min="1" max="65535">
+                    <input type="text" placeholder="Service name (optional)">
+                    <button type="button" class="btn-small" onclick="this.parentElement.remove()" style="background: #ef4444; color: white;">×</button>
+                `;
+
+                customPortsList.appendChild(portRow);
+            }
+
+            handleCsvUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const csvContent = e.target.result;
+                    const preview = document.getElementById('csvPreview');
+
+                    // Simple CSV preview - first 5 lines
+                    const lines = csvContent.split('\n').slice(0, 5);
+                    preview.innerHTML = `
+                        <div class="csv-preview">
+                            <strong>Preview:</strong><br>
+                            ${lines.join('<br>')}
+                            ${csvContent.split('\n').length > 5 ? '<br>... and more' : ''}
+                        </div>
+                    `;
+                };
+                reader.readAsText(file);
+            }
+
+            getSelectedPorts() {
+                const ports = [];
+
+                // Get common ports
+                document.querySelectorAll('.port-checkboxes input:checked').forEach(checkbox => {
+                    ports.push({
+                        port: parseInt(checkbox.value),
+                        service: checkbox.dataset.service
+                    });
+                });
+
+                // Get custom ports
+                document.querySelectorAll('.custom-port-row').forEach(row => {
+                    const portInput = row.querySelector('input[type="number"]');
+                    const serviceInput = row.querySelector('input[type="text"]');
+
+                    if (portInput.value) {
+                        ports.push({
+                            port: parseInt(portInput.value),
+                            service: serviceInput.value || 'Custom'
+                        });
+                    }
+                });
+
+                return ports;
+            }
+
+            parseTextInput(text) {
+                return text.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line && this.isValidIP(line))
+                    .map(ip => ({ ip, hostname: '' }));
+            }
+
+            isValidIP(ip) {
+                const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+                return ipRegex.test(ip);
+            }
+
+            setLoadingState(buttonId, isLoading) {
+                const button = document.getElementById(buttonId);
+                if (!button) return;
+
+                const btnText = button.querySelector('.btn-text');
+                const spinner = button.querySelector('.btn-spinner');
+
+                if (isLoading) {
+                    btnText.style.display = 'none';
+                    spinner.style.display = 'inline-flex';
+                    button.disabled = true;
+                } else {
+                    btnText.style.display = 'inline';
+                    spinner.style.display = 'none';
+                    button.disabled = false;
+                }
+            }
+
+            showResults(results) {
+                const resultsSection = document.getElementById('resultsSection');
+                const resultsContent = document.getElementById('resultsContent');
+
+                resultsContent.innerHTML = '';
+
+                results.forEach(result => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = `result-item ${result.status === 'success' ? 'result-success' : 'result-error'}`;
+
+                    let portsHtml = '';
+                    if (result.ports) {
+                        portsHtml = '<div style="margin-top: 0.5rem;">' +
+                            result.ports.map(port =>
+                                `<span class="port-status port-${port.status}">${port.port} (${port.service})</span>`
+                            ).join(' ') + '</div>';
+                    }
+
+                    resultItem.innerHTML = `
+                        <h4>${result.hostname || result.ip}</h4>
+                        <p>${result.message}</p>
+                        ${portsHtml}
+                    `;
+
+                    resultsContent.appendChild(resultItem);
+                });
+
+                resultsSection.style.display = 'block';
+            }
+
+            hideResults() {
+                const resultsSection = document.getElementById('resultsSection');
+                if (resultsSection) {
+                    resultsSection.style.display = 'none';
+                }
+            }
+
+            clearForms() {
+                // Clear quick add
+                document.getElementById('quickIpAddress').value = '';
+
+                // Clear manual add
+                document.getElementById('manualIpAddress').value = '';
+                document.getElementById('manualHostname').value = '';
+                document.querySelectorAll('.port-checkboxes input').forEach(cb => cb.checked = false);
+                document.getElementById('customPortsList').innerHTML = '';
+
+                // Clear bulk add
+                document.getElementById('bulkTextArea').value = '';
+                document.getElementById('csvFileInput').value = '';
+                document.getElementById('csvPreview').innerHTML = '';
+
+                this.customPortCounter = 0;
+            }
+
+            attachEventListeners() {
+                // Close modal when clicking outside
+                window.addEventListener('click', (event) => {
+                    const modal = document.getElementById('addDeviceModal');
+                    if (event.target === modal) {
+                        this.hide();
+                    }
+                });
+
+                // Handle escape key
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape' && this.isVisible) {
+                        this.hide();
+                    }
+                });
+            }
+
+            // API helper method - implement based on your backend
+            async callAPI(endpoint, data) {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    return result;
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    throw error;
+                }
+            }
+        }
+
+        // Initialize the modal when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            window.addDeviceModal = new AddDeviceModal();
+        });
         function addSelectedDevices() {
             const checkboxes = document.querySelectorAll('#discoveredDevicesList input[type="checkbox"]:checked');
             const selectedDevices = Array.from(checkboxes).map(cb => cb.value);

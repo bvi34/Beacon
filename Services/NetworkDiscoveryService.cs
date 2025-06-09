@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Beacon.Services
 {
-    // FIXED: Interface should be named INetworkDiscoveryService (with I prefix)
     public interface INetworkDiscoveryService
     {
         Task<List<DiscoveredDevice>> DiscoverDevicesAsync(string networkRange);
@@ -17,11 +16,9 @@ namespace Beacon.Services
         Task<bool> AddDiscoveredDeviceAsync(DiscoveredDevice discoveredDevice);
     }
 
-    // FIXED: Class should be named NetworkDiscoveryService (without I prefix) and implement INetworkDiscoveryService
     public class NetworkDiscoveryService : INetworkDiscoveryService
     {
         private readonly ApplicationDbContext _context;
-        // FIXED: Logger should be for NetworkDiscoveryService, not INetworkDiscoveryService
         private readonly ILogger<NetworkDiscoveryService> _logger;
 
         // Common ports to check for service identification
@@ -45,7 +42,6 @@ namespace Beacon.Services
             { 161, "SNMP" }
         };
 
-        // FIXED: Constructor parameter should be ILogger<NetworkDiscoveryService>
         public NetworkDiscoveryService(ApplicationDbContext context, ILogger<NetworkDiscoveryService> logger)
         {
             _context = context;
@@ -116,8 +112,8 @@ namespace Beacon.Services
                 var device = new DiscoveredDevice
                 {
                     IpAddress = ipAddress,
-                    IsResponding = true,
-                    ResponseTime = reply.RoundtripTime,
+                    IsReachable = true,
+                    ResponseTimeMs = reply.RoundtripTime,
                     DiscoveredAt = DateTime.UtcNow
                 };
 
@@ -133,7 +129,11 @@ namespace Beacon.Services
                 }
 
                 // Probe common ports to identify services
-                device.OpenPorts = await ProbePortsAsync(ipAddress);
+                var discoveredServices = await ProbePortsAsync(ipAddress);
+
+                // Populate OpenPorts (List<int>) and Services (List<DiscoveredService>)
+                device.OpenPorts = discoveredServices.Select(s => s.Port).ToList();
+                device.Services = discoveredServices;
                 device.DeviceType = DetermineDeviceType(device.OpenPorts, device.Hostname);
 
                 return device;
@@ -177,15 +177,15 @@ namespace Beacon.Services
                     _context.Devices.Add(newDevice);
                     await _context.SaveChangesAsync();
 
-                    // Add monitored ports for discovered open ports
-                    foreach (var port in discoveredDevice.OpenPorts)
+                    // Add monitored ports for discovered services
+                    foreach (var service in discoveredDevice.Services)
                     {
                         var monitoredPort = new MonitoredPort
                         {
                             DeviceId = newDevice.Id,
-                            Port = port.Port,
-                            Protocol = port.Protocol,
-                            ServiceName = port.Service,
+                            Port = service.Port,
+                            Protocol = service.Protocol,
+                            ServiceName = service.ServiceName,
                             IsEnabled = true,
                             CreatedAt = DateTime.UtcNow
                         };
@@ -203,9 +203,9 @@ namespace Beacon.Services
             }
         }
 
-        private async Task<List<DiscoveredPort>> ProbePortsAsync(string ipAddress)
+        private async Task<List<DiscoveredService>> ProbePortsAsync(string ipAddress)
         {
-            var openPorts = new List<DiscoveredPort>();
+            var discoveredServices = new List<DiscoveredService>();
             var semaphore = new SemaphoreSlim(10); // Limit concurrent port scans
 
             var tasks = _commonPorts.Select(async kvp =>
@@ -215,13 +215,15 @@ namespace Beacon.Services
                 {
                     if (await IsPortOpenAsync(ipAddress, kvp.Key))
                     {
-                        lock (openPorts)
+                        lock (discoveredServices)
                         {
-                            openPorts.Add(new DiscoveredPort
+                            discoveredServices.Add(new DiscoveredService
                             {
                                 Port = kvp.Key,
-                                Service = kvp.Value,
-                                Protocol = "TCP"
+                                ServiceName = kvp.Value,
+                                Protocol = "TCP",
+                                Banner = "", // Could add banner grabbing later
+                                IsSecure = IsSecurePort(kvp.Key)
                             });
                         }
                     }
@@ -233,7 +235,7 @@ namespace Beacon.Services
             });
 
             await Task.WhenAll(tasks);
-            return openPorts;
+            return discoveredServices;
         }
 
         private async Task<bool> IsPortOpenAsync(string host, int port, int timeout = 2000)
@@ -253,9 +255,16 @@ namespace Beacon.Services
             }
         }
 
-        private string DetermineDeviceType(List<DiscoveredPort> openPorts, string hostname)
+        private bool IsSecurePort(int port)
         {
-            var portNumbers = openPorts.Select(p => p.Port).ToHashSet();
+            // Common secure ports
+            var securePorts = new HashSet<int> { 22, 443, 993, 995, 636, 989, 990 };
+            return securePorts.Contains(port);
+        }
+
+        private string DetermineDeviceType(List<int> openPorts, string hostname)
+        {
+            var portNumbers = openPorts.ToHashSet();
 
             // Check hostname patterns
             var hostnameLower = hostname.ToLower();
@@ -364,25 +373,5 @@ namespace Beacon.Services
 
             return ipAddresses;
         }
-    }
-
-    // DTOs for discovery results
-    public class DiscoveredDevice
-    {
-        public string IpAddress { get; set; } = string.Empty;
-        public string Hostname { get; set; } = string.Empty;
-        public bool IsResponding { get; set; }
-        public long ResponseTime { get; set; }
-        public List<DiscoveredPort> OpenPorts { get; set; } = new();
-        public string DeviceType { get; set; } = "Unknown";
-        public DateTime DiscoveredAt { get; set; }
-        public bool AlreadyExists { get; set; }
-    }
-
-    public class DiscoveredPort
-    {
-        public int Port { get; set; }
-        public string Protocol { get; set; } = "TCP";
-        public string Service { get; set; } = string.Empty;
     }
 }

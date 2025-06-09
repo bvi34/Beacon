@@ -14,7 +14,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// Register your network discovery service (only once)
 builder.Services.AddScoped<INetworkDiscoveryService, NetworkDiscoveryService>();
+
 // Identity
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 {
@@ -24,16 +27,17 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options =>
     options.Password.RequireUppercase = false;
     options.Password.RequiredLength = 6;
 })
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+.AddEntityFrameworkStores<ApplicationDbContext>();
 
 // MVC and Blazor
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
+// BUILD THE APP - Do this AFTER all service registrations
 var app = builder.Build();
 
-// Ensure database is created
+// Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -49,7 +53,6 @@ using (var scope = app.Services.CreateScope())
             Status = DeviceStatus.Online,
             LastSeen = DateTime.UtcNow
         });
-
         context.Devices.Add(new Device
         {
             Hostname = "google.com",
@@ -57,7 +60,6 @@ using (var scope = app.Services.CreateScope())
             Status = DeviceStatus.Unknown,
             LastSeen = DateTime.UtcNow.AddMinutes(-5)
         });
-
         context.SaveChanges();
     }
 }
@@ -75,9 +77,7 @@ else
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 

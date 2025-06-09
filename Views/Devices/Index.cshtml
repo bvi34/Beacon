@@ -1,0 +1,242 @@
+﻿@model IEnumerable<Beacon.Models.Device>
+
+@{
+    ViewData["Title"] = "Device List";
+}
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-network-wired"></i> Discovered Devices</h2>
+            <p class="text-muted">Network devices discovered by Beacon</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary" onclick="refreshDevices()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button type="button" class="btn btn-outline-info" onclick="showStatusSummary()">
+                    <i class="fas fa-chart-pie"></i> Summary
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Summary Cards -->
+    <div class="row mb-4" id="statusCards" style="display: none;">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Online</h5>
+                    <h3 id="onlineCount">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Offline</h5>
+                    <h3 id="offlineCount">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Warning</h5>
+                    <h3 id="warningCount">0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Unknown</h5>
+                    <h3 id="unknownCount">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Devices Table -->
+    <div class="card">
+        <div class="card-body">
+            @if (Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Status</th>
+                                <th>Hostname</th>
+                                <th>IP Address</th>
+                                <th>Last Seen</th>
+                                <th>Ports</th>
+                                <th>Certificates</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var device in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        @switch (device.Status)
+                                        {
+                                            case DeviceStatus.Online:
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-circle"></i> Online
+                                                </span>
+                                                break;
+                                            case DeviceStatus.Offline:
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-circle"></i> Offline
+                                                </span>
+                                                break;
+                                            case DeviceStatus.Warning:
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-exclamation-triangle"></i> Warning
+                                                </span>
+                                                break;
+                                            case DeviceStatus.Critical:
+                                                <span class="badge bg-danger">
+                                                    <i class="fas fa-exclamation-circle"></i> Critical
+                                                </span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-question-circle"></i> Unknown
+                                                </span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@device.Hostname</strong>
+                                    </td>
+                                    <td>
+                                        <code>@device.IpAddress</code>
+                                    </td>
+                                    <td>
+                                        <span title="@device.LastSeen.ToString("yyyy-MM-dd HH:mm:ss")">
+                                            @GetTimeSinceLastSeen(device.LastSeen)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        @if (device.MonitoredPorts.Any())
+                                        {
+                                            <span class="badge bg-info">@device.MonitoredPorts.Count</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (device.Certificates.Any())
+                                        {
+                                            <span class="badge bg-primary">@device.Certificates.Count</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a asp-action="Details" asp-route-id="@device.Id"
+                                               class="btn btn-outline-primary" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a asp-action="Delete" asp-route-id="@device.Id"
+                                               class="btn btn-outline-danger" title="Delete Device">
+                                                <i class="fas fa-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No devices discovered yet</h4>
+                    <p class="text-muted">Beacon is scanning your network for devices. Check back in a few moments.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@functions {
+    private string GetTimeSinceLastSeen(DateTime lastSeen)
+    {
+        var timeSpan = DateTime.UtcNow - lastSeen;
+
+        if (timeSpan.TotalMinutes < 1)
+            return "Just now";
+        else if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes}m ago";
+        else if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours}h ago";
+        else
+            return $"{(int)timeSpan.TotalDays}d ago";
+    }
+}
+
+@section Scripts {
+    <script>
+        function refreshDevices() {
+            location.reload();
+        }
+
+        function showStatusSummary() {
+            const statusCards = document.getElementById('statusCards');
+            if (statusCards.style.display === 'none') {
+                // Load status summary via AJAX
+                fetch('/Devices/GetStatusSummary')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Reset counts
+                        document.getElementById('onlineCount').textContent = '0';
+                        document.getElementById('offlineCount').textContent = '0';
+                        document.getElementById('warningCount').textContent = '0';
+                        document.getElementById('unknownCount').textContent = '0';
+
+                        // Update counts from API
+                        data.forEach(item => {
+                            switch(item.status.toLowerCase()) {
+                                case 'online':
+                                    document.getElementById('onlineCount').textContent = item.count;
+                                    break;
+                                case 'offline':
+                                    document.getElementById('offlineCount').textContent = item.count;
+                                    break;
+                                case 'warning':
+                                    document.getElementById('warningCount').textContent = item.count;
+                                    break;
+                                case 'unknown':
+                                    document.getElementById('unknownCount').textContent = item.count;
+                                    break;
+                            }
+                        });
+
+                        statusCards.style.display = 'block';
+                    })
+                    .catch(error => console.error('Error loading status summary:', error));
+            } else {
+                statusCards.style.display = 'none';
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            if (document.visibilityState === 'visible') {
+                refreshDevices();
+            }
+        }, 30000);
+    </script>
+}

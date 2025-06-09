@@ -129,6 +129,11 @@ const NetworkDiscovery = () => {
         const newDeviceIps = new Set(newDevices.map(d => d.ipAddress));
         setSelectedDevices(newDeviceIps);
     };
+    const selectAllDevices = () => {
+        const selectable = discoveredDevices;
+        const allIps = new Set(selectable.map(d));
+        setSelectedDevices(allIps);
+    }
 
     const getDeviceIcon = (deviceType) => {
         switch (deviceType.toLowerCase()) {
@@ -299,6 +304,13 @@ const NetworkDiscovery = () => {
                             <h2 className="text-lg font-medium text-gray-900">
                                 Discovered Devices ({discoveredDevices.length})
                             </h2>
+                            <button
+                                onClick={selectAllDevices}
+                                className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                                Select All
+                            </button>
+                                )}
                             {discoveredDevices.some(d => !d.alreadyExists) && (
                                 <button
                                     onClick={selectAllNewDevices}
