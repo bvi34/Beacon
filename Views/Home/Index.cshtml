@@ -10,16 +10,27 @@
             loadChartData();
             setupDiscoveryModal();
             loadRecentDevices();
+            loadUrlMonitors();
             window.addDeviceModal = new AddDeviceModal();
+            setupUrlMonitorModal();
         });
 
         async function loadMetrics() {
-            const res = await fetch('/api/Discovery/status');
-            const data = await res.json();
-            document.querySelector('.metric-card.online .metric-number').textContent = data.onlineDevices;
-            document.querySelector('.metric-card.offline .metric-number').textContent = data.offlineDevices;
-            document.querySelector('.metric-card.warning .metric-number').textContent = data.recentlyAddedDevices;
-            document.querySelector('.metric-card.total .metric-number').textContent = data.totalManagedDevices;
+            // Load device metrics
+            const deviceRes = await fetch('/api/Discovery/status');
+            const deviceData = await deviceRes.json();
+            document.querySelector('.metric-card.online .metric-number').textContent = deviceData.onlineDevices;
+            document.querySelector('.metric-card.offline .metric-number').textContent = deviceData.offlineDevices;
+            document.querySelector('.metric-card.warning .metric-number').textContent = deviceData.recentlyAddedDevices;
+            document.querySelector('.metric-card.total .metric-number').textContent = deviceData.totalManagedDevices;
+
+            // Load URL monitoring metrics
+            const urlRes = await fetch('/api/UrlMonitor/status');
+            const urlData = await urlRes.json();
+            document.querySelector('.metric-card.urls-up .metric-number').textContent = urlData.upUrls;
+            document.querySelector('.metric-card.urls-down .metric-number').textContent = urlData.downUrls;
+            document.querySelector('.metric-card.cert-expiring .metric-number').textContent = urlData.expiringCertificates;
+            document.querySelector('.metric-card.cert-expired .metric-number').textContent = urlData.expiredCertificates;
         }
 
         async function loadChartData() {
@@ -36,6 +47,41 @@
                 const el = document.createElement('div');
                 el.className = 'device-item';
                 el.innerHTML = `<a href='/Devices/Details/${device.id}' class='device-link'><strong>${device.hostname}</strong> <span class='ip'>${device.ipAddress}</span></a>`;
+                container.appendChild(el);
+            });
+        }
+
+        async function loadUrlMonitors() {
+            const res = await fetch('/api/UrlMonitor/status');
+            const data = await res.json();
+            const container = document.getElementById('urlMonitorContainer');
+            container.innerHTML = '';
+
+            data.monitors.slice(0, 10).forEach(monitor => {
+                const statusClass = monitor.status.toLowerCase();
+                const certStatus = monitor.certificate ?
+                    (monitor.certificate.isExpired ? 'expired' :
+                        monitor.certificate.isExpiringSoon ? 'expiring' : 'valid') : 'none';
+
+                const el = document.createElement('div');
+                el.className = `url-monitor-item status-${statusClass}`;
+                el.innerHTML = `
+                            <div class="url-info">
+                                <strong>${monitor.name}</strong>
+                                <div class="url-details">
+                                    <span class="url">${monitor.url}</span>
+                                    <span class="status status-${statusClass}">${monitor.status}</span>
+                                    ${monitor.responseTime ? `<span class="response-time">${monitor.responseTime.toFixed(0)}ms</span>` : ''}
+                                </div>
+                            </div>
+                            ${monitor.certificate ? `
+                                <div class="cert-info cert-${certStatus}">
+                                    <span class="cert-name">${monitor.certificate.commonName}</span>
+                                    <span class="cert-expiry">Expires: ${new Date(monitor.certificate.expiryDate).toLocaleDateString()}</span>
+                                    <span class="cert-days">${monitor.certificate.daysUntilExpiry} days left</span>
+                                </div>
+                            ` : '<div class="cert-info cert-none">No SSL Certificate</div>'}
+                        `;
                 container.appendChild(el);
             });
         }
@@ -79,7 +125,188 @@
                 document.getElementById('discoveryModal').style.display = 'none';
             };
         }
+
+        function setupUrlMonitorModal() {
+            window.showUrlMonitorModal = function () {
+                document.getElementById('urlMonitorModal').style.display = 'block';
+            };
+
+            window.closeUrlMonitorModal = function () {
+                document.getElementById('urlMonitorModal').style.display = 'none';
+                document.getElementById('urlMonitorForm').reset();
+            };
+
+            window.addUrlMonitor = async function () {
+                const form = document.getElementById('urlMonitorForm');
+                const formData = new FormData(form);
+
+                const data = {
+                    url: formData.get('url'),
+                    name: formData.get('name'),
+                    description: formData.get('description')
+                };
+
+                try {
+                    const res = await fetch('/api/UrlMonitor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (res.ok) {
+                        alert('URL monitor added successfully!');
+                        closeUrlMonitorModal();
+                        loadMetrics();
+                        loadUrlMonitors();
+                    } else {
+                        const error = await res.text();
+                        alert(`Error: ${error}`);
+                    }
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                }
+            };
+
+            window.checkAllUrls = async function () {
+                try {
+                    await fetch('/api/UrlMonitor/check-all', { method: 'POST' });
+                    alert('All URLs checked!');
+                    loadMetrics();
+                    loadUrlMonitors();
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                }
+            };
+        }
     </script>
+    <style>
+        .url-monitor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            border-left: 4px solid var(--primary-color);
+        }
+
+            .url-monitor-item.status-down {
+                border-left-color: #dc3545;
+            }
+
+            .url-monitor-item.status-error {
+                border-left-color: #fd7e14;
+            }
+
+            .url-monitor-item.status-timeout {
+                border-left-color: #ffc107;
+            }
+
+        .url-info .url-details {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .url-details .url {
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
+        .url-details .status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .status-up {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-down {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-error {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-timeout {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .response-time {
+            font-size: 0.8em;
+            color: var(--text-muted);
+        }
+
+        .cert-info {
+            text-align: right;
+            font-size: 0.85em;
+        }
+
+            .cert-info .cert-name {
+                font-weight: 500;
+                display: block;
+            }
+
+            .cert-info .cert-expiry {
+                color: var(--text-muted);
+                display: block;
+            }
+
+            .cert-info .cert-days {
+                font-weight: 500;
+                display: block;
+            }
+
+        .cert-valid .cert-days {
+            color: #28a745;
+        }
+
+        .cert-expiring .cert-days {
+            color: #ffc107;
+        }
+
+        .cert-expired .cert-days {
+            color: #dc3545;
+        }
+
+        .cert-none {
+            color: var(--text-muted);
+        }
+
+        .modal-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+            .form-group label {
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+            }
+
+            .form-group input, .form-group textarea {
+                padding: 0.5rem;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                background: var(--input-bg);
+                color: var(--text-color);
+            }
+    </style>
 }
 
 <div class="container">
@@ -91,6 +318,8 @@
         <div class="controls">
             <button class="btn btn-primary" onclick="addDeviceModal.show()">Add Device</button>
             <button class="btn btn-secondary" onclick="showDiscoveryModal()">🔍 Discover Devices</button>
+            <button class="btn btn-accent" onclick="showUrlMonitorModal()">🌐 Add URL Monitor</button>
+            <button class="btn btn-outline" onclick="checkAllUrls()">🔄 Check All URLs</button>
             <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
         </div>
     </header>
@@ -100,16 +329,24 @@
         <div class="metric-card offline"><div class="metric-number">0</div><div class="metric-label">Devices Offline</div></div>
         <div class="metric-card warning"><div class="metric-number">0</div><div class="metric-label">Recently Added</div></div>
         <div class="metric-card total"><div class="metric-number">0</div><div class="metric-label">Total Devices</div></div>
+        <div class="metric-card urls-up"><div class="metric-number">0</div><div class="metric-label">URLs Up</div></div>
+        <div class="metric-card urls-down"><div class="metric-number">0</div><div class="metric-label">URLs Down</div></div>
+        <div class="metric-card cert-expiring"><div class="metric-number">0</div><div class="metric-label">Certs Expiring</div></div>
+        <div class="metric-card cert-expired"><div class="metric-number">0</div><div class="metric-label">Certs Expired</div></div>
     </section>
 
     <section class="chart-section">
-        <div class="chart-card"><h3 class="chart-title">Device Status Over Time</h3><canvas id="statusChart"></canvas></div>
-        <div class="chart-card"><h3 class="chart-title">Device Distribution</h3><canvas id="distributionChart"></canvas></div>
+        <div class="chart-card"><h3 class="chart-title">URL Response Times</h3><canvas id="responseChart"></canvas></div>
     </section>
 
     <section class="device-list">
         <h3 class="chart-title">Recent Device Activity</h3>
         <div id="deviceListContainer" class="device-list-container">Loading...</div>
+    </section>
+
+    <section class="device-list">
+        <h3 class="chart-title">URL Monitoring Status</h3>
+        <div id="urlMonitorContainer" class="device-list-container">Loading...</div>
     </section>
 </div>
 
@@ -133,3 +370,34 @@
         </div>
     </div>
 </div>
+
+<div id="urlMonitorModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Add URL Monitor</h2>
+            <button class="close" onclick="closeUrlMonitorModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="urlMonitorForm" class="modal-form">
+                <div class="form-group">
+                    <label for="url">URL *</label>
+                    <input type="url" id="url" name="url" placeholder="https://example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" placeholder="My Website">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3" placeholder="Optional description..."></textarea>
+                </div>
+                <div style="margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-primary" onclick="addUrlMonitor()">Add Monitor</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeUrlMonitorModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>class="chart-title">Device Status Over Time</h3>
+<canvas id="statusChart"></canvas></div>
+<div class="chart-card"><h3

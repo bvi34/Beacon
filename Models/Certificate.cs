@@ -6,8 +6,8 @@ namespace Beacon.Models
     {
         public int Id { get; set; }
 
-        [Required]
-        public int DeviceId { get; set; }
+        // Optional - for device certificates
+        public int? DeviceId { get; set; }
 
         [Required]
         [StringLength(255)]
@@ -38,13 +38,18 @@ namespace Beacon.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Navigation property
-        public Device Device { get; set; } = null!;
+        // Navigation properties
+        public Device? Device { get; set; } // For device certificates
+        public ICollection<UrlMonitor> UrlMonitors { get; set; } = new List<UrlMonitor>(); // For URL certificates
 
         // Computed properties
         public bool IsExpired => DateTime.UtcNow > ExpiryDate;
         public bool IsExpiringSoon => DateTime.UtcNow.AddDays(30) > ExpiryDate && !IsExpired;
         public int DaysUntilExpiry => (int)(ExpiryDate - DateTime.UtcNow).TotalDays;
+
+        // Helper property to determine certificate type
+        public bool IsDeviceCertificate => DeviceId.HasValue;
+        public bool IsUrlCertificate => UrlMonitors.Any();
     }
 
     public enum CertificateStatus

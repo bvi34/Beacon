@@ -1,0 +1,435 @@
+﻿@{
+    ViewData["Title"] = "URL Monitoring";
+    Layout = "_Layout";
+}
+
+@section Scripts {
+    <script>
+        let monitors = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMonitors();
+            setupModals();
+        });
+
+        async function loadMonitors() {
+            try {
+                const res = await fetch('/api/UrlMonitor/status');
+                const data = await res.json();
+                monitors = data.monitors;
+                renderMonitors();
+                updateSummary(data);
+            } catch (error) {
+                console.error('Error loading monitors:', error);
+            }
+        }
+
+        function renderMonitors() {
+            const container = document.getElementById('monitorsContainer');
+            container.innerHTML = '';
+
+            if (monitors.length === 0) {
+                container.innerHTML = '<div class="empty-state">No URL monitors configured. <a href="#" onclick="showAddModal()">Add your first monitor</a></div>';
+                return;
+            }
+
+            monitors.forEach(monitor => {
+                const monitorCard = createMonitorCard(monitor);
+                container.appendChild(monitorCard);
+            });
+        }
+
+        function createMonitorCard(monitor) {
+            const card = document.createElement('div');
+            card.className = `monitor-card status-${monitor.status.toLowerCase()}`;
+
+            const lastChecked = monitor.lastChecked ?
+                new Date(monitor.lastChecked).toLocaleString() : 'Never';
+
+            const responseTime = monitor.responseTime ?
+                `${monitor.responseTime.toFixed(0)}ms` : 'N/A';
+
+            card.innerHTML = `
+                <div class="monitor-header">
+                    <div class="monitor-info">
+                        <h3 class="monitor-name">${monitor.name}</h3>
+                        <div class="monitor-url">${monitor.url}</div>
+                    </div>
+                    <div class="monitor-status">
+                        <span class="status-badge status-${monitor.status.toLowerCase()}">${monitor.status}</span>
+                    </div>
+                </div>
+                <div class="monitor-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Last Checked:</span>
+                        <span class="detail-value">${lastChecked}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Response Time:</span>
+                        <span class="detail-value">${responseTime}</span>
+                    </div>
+                    ${monitor.certificate ? `
+                        <div class="certificate-section">
+                            <h4>SSL Certificate</h4>
+                            <div class="cert-details">
+                                <div class="detail-row">
+                                    <span class="detail-label">Common Name:</span>
+                                    <span class="detail-value">${monitor.certificate.commonName}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Expires:</span>
+                                    <span class="detail-value cert-expiry ${monitor.certificate.isExpired ? 'expired' : monitor.certificate.isExpiringSoon ? 'expiring' : 'valid'}">
+                                        ${new Date(monitor.certificate.expiryDate).toLocaleDateString()}
+                                        (${monitor.certificate.daysUntilExpiry} days)
+                                    </span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label">Status:</span>
+                                    <span class="cert-status cert-${monitor.certificate.status.toLowerCase()}">${monitor.certificate.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ` : '<div class="no-certificate">No SSL Certificate</div>'}
+                </div>
+                <div class="monitor-actions">
+                    <button class="btn btn-sm btn-primary" onclick="checkMonitor(${monitor.id})">Check Now</button>
+                    <button class="btn btn-sm btn-secondary" onclick="editMonitor(${monitor.id})">Edit</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteMonitor(${monitor.id})">Delete</button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function updateSummary(data) {
+            document.getElementById('totalUrls').textContent = data.totalUrls;
+            document.getElementById('upUrls').textContent = data.upUrls;
+            document.getElementById('downUrls').textContent = data.downUrls;
+            document.getElementById('errorUrls').textContent = data.errorUrls;
+            document.getElementById('expiringCerts').textContent = data.expiringCertificates;
+            document.getElementById('expiredCerts').textContent = data.expiredCertificates;
+        }
+
+        async function checkMonitor(id) {
+            try {
+                await fetch(`/api/UrlMonitor/${id}/check`, { method: 'POST' });
+                await loadMonitors();
+                showNotification('Monitor checked successfully', 'success');
+            } catch (error) {
+                showNotification('Error checking monitor', 'error');
+            }
+        }
+
+        async function checkAllMonitors() {
+            try {
+                await fetch('/api/UrlMonitor/check-all', { method: 'POST' });
+                await loadMonitors();
+                showNotification('All monitors checked successfully', 'success');
+            } catch (error) {
+                showNotification('Error checking monitors', 'error');
+            }
+        }
+
+        async function deleteMonitor(id) {
+            if (!confirm('Are you sure you want to delete this monitor?')) return;
+
+            try {
+                await fetch(`/api/UrlMonitor/${id}`, { method: 'DELETE' });
+                await loadMonitors();
+                showNotification('Monitor deleted successfully', 'success');
+            } catch (error) {
+                showNotification('Error deleting monitor', 'error');
+            }
+        }
+
+        function setupModals() {
+            window.showAddModal = function() {
+                document.getElementById('addMonitorModal').style.display = 'block';
+            };
+
+            window.closeAddModal = function() {
+                document.getElementById('addMonitorModal').style.display = 'none';
+                document.getElementById('addMonitorForm').reset();
+            };
+
+            window.addMonitor = async function() {
+                const form = document.getElementById('addMonitorForm');
+                const formData = new FormData(form);
+
+                const data = {
+                    url: formData.get('url'),
+                    name: formData.get('name'),
+                    description: formData.get('description')
+                };
+
+                try {
+                    const res = await fetch('/api/UrlMonitor', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (res.ok) {
+                        closeAddModal();
+                        await loadMonitors();
+                        showNotification('URL monitor added successfully', 'success');
+                    } else {
+                        const error = await res.text();
+                        showNotification(`Error: ${error}`, 'error');
+                    }
+                } catch (error) {
+                    showNotification(`Error: ${error.message}`, 'error');
+                }
+            };
+        }
+
+        function showNotification(message, type) {
+            // Simple notification system - you can enhance this
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--card-bg);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .summary-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .monitors-container {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .monitor-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .monitor-card.status-down { border-left-color: #dc3545; }
+        .monitor-card.status-error { border-left-color: #fd7e14; }
+        .monitor-card.status-timeout { border-left-color: #ffc107; }
+
+        .monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .monitor-name {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.25rem;
+            color: var(--text-color);
+        }
+
+        .monitor-url {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-up { background: #d4edda; color: #155724; }
+        .status-down { background: #f8d7da; color: #721c24; }
+        .status-error { background: #fff3cd; color: #856404; }
+        .status-timeout { background: #fff3cd; color: #856404; }
+
+        .monitor-details {
+            margin-bottom: 1rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-label {
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .certificate-section {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .certificate-section h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            color: var(--text-color);
+        }
+
+        .cert-expiry.expired { color: #dc3545; }
+        .cert-expiry.expiring { color: #ffc107; }
+        .cert-expiry.valid { color: #28a745; }
+
+        .cert-status.cert-valid { color: #28a745; }
+        .cert-status.cert-expiringsoon { color: #ffc107; }
+        .cert-status.cert-expired { color: #dc3545; }
+
+        .no-certificate {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .monitor-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem;
+            border-radius: 4px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+        }
+
+        .notification-success { background: #28a745; }
+        .notification-error { background: #dc3545; }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--input-bg);
+            color: var(--text-color);
+        }
+    </style>
+}
+
+<div class="container">
+    <div class="page-header">
+        <h1>URL Monitoring</h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="showAddModal()">Add URL Monitor</button>
+            <button class="btn btn-secondary" onclick="checkAllMonitors()">Check All</button>
+        </div>
+    </div>
+
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="summary-number" id="totalUrls">0</div>
+            <div class="summary-label">Total URLs</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number" id="upUrls">0</div>
+            <div class="summary-label">Up</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number" id="downUrls">0</div>
+            <div class="summary-label">Down</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number" id="errorUrls">0</div>
+            <div class="summary-label">Errors</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number" id="expiringCerts">0</div>
+            <div class="summary-label">Certs Expiring</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number" id="expiredCerts">0</div>
+            <div class="summary-label">Certs Expired</div>
+        </div>
+    </div>
+
+    <div id="monitorsContainer" class="monitors-container">
+        Loading...
+    </div>
+</div>
+
+<div id="addMonitorModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Add URL Monitor</h2>
+            <button class="close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="addMonitorForm">
+                <div class="form-group">
+                    <label for="url">URL *</label>
+                    <input type="url" id="url" name="url" placeholder="https://example.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" placeholder="My Website">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" rows="3" placeholder="Optional description..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" onclick="addMonitor()">Add Monitor</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

@@ -17,7 +17,9 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Register your network discovery service (only once)
 builder.Services.AddScoped<INetworkDiscoveryService, NetworkDiscoveryService>();
-
+builder.Services.AddScoped<IUrlMonitoringService, UrlMonitoringService>();
+builder.Services.AddHostedService<UrlMonitorBackgroundService>();
+builder.Services.AddHttpClient<UrlMonitoringService>();
 // Identity
 builder.Services.AddDefaultIdentity<IdentityUser>(options =>
 {
