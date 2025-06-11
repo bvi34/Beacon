@@ -26,7 +26,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\" />
+    <None Include="wwwroot\css\Style.css" />
+    <None Include="wwwroot\js\Functions.js" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,9 @@ using System.Text.Json;
 using Beacon.Models;
 using Beacon.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Sockets;
+using System;
+using System.Security.Cryptography;
 
 namespace Beacon.Services
 {
@@ -30,18 +33,24 @@ namespace Beacon.Services
             _serviceProvider = serviceProvider;
             _logger = logger;
 
-            // Configure HttpClient
+            // Configure HttpClient with a longer timeout than individual requests
+            _httpClient.Timeout = TimeSpan.FromMinutes(2); // Longer than any individual monitor timeout
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Beacon-Monitor/1.0");
-        }
 
+        }
         public async Task<UrlMonitorResult> CheckUrlAsync(UrlMonitor urlMonitor)
         {
+            _logger.LogInformation($"Starting URL check for {urlMonitor.Url}");
             var stopwatch = Stopwatch.StartNew();
             var result = new UrlMonitorResult { UrlMonitorId = urlMonitor.Id };
 
             try
             {
+
+                _logger.LogDebug($"Creating cancellation token with {urlMonitor.TimeoutSeconds} seconds timeout");
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(urlMonitor.TimeoutSeconds));
+
+                _logger.LogDebug($"Making HTTP request to {urlMonitor.Url}");
                 using var response = await _httpClient.GetAsync(urlMonitor.Url, cts.Token);
 
                 stopwatch.Stop();
@@ -93,43 +102,58 @@ namespace Beacon.Services
             try
             {
                 var uri = new Uri(url);
-                var request = WebRequest.Create($"https://{uri.Host}:{(uri.Port == -1 ? 443 : uri.Port)}");
+                var host = uri.Host;
+                var port = uri.Port > 0 ? uri.Port : 443;
 
-                if (request is HttpWebRequest httpRequest)
+                using var tcpClient = new TcpClient();
+                await tcpClient.ConnectAsync(host, port);
+
+                using var sslStream = new SslStream(tcpClient.GetStream(), false, ValidateCertificate);
+
+                 bool ValidateCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
                 {
-                    httpRequest.Method = "HEAD";
-                    httpRequest.Timeout = 10000; // 10 second timeout
-                    httpRequest.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+                    // For monitoring purposes, we want to capture certificate info even if there are errors
+                    // but we should log the errors
+                    if (sslPolicyErrors != SslPolicyErrors.None)
                     {
-                        if (certificate is X509Certificate2 cert)
-                        {
-                            result.Success = true;
-                            result.CommonName = cert.Subject;
-                            result.Issuer = cert.Issuer;
-                            result.IssuedDate = cert.NotBefore;
-                            result.ExpiryDate = cert.NotAfter;
-                            result.Thumbprint = cert.Thumbprint;
-                            result.Algorithm = cert.SignatureAlgorithm.FriendlyName ?? cert.SignatureAlgorithm.Value ?? "Unknown";
-                            result.KeySize = cert.PublicKey.Key.KeySize;
-                            result.IsExpired = DateTime.UtcNow > cert.NotAfter;
-                            result.IsExpiringSoon = DateTime.UtcNow.AddDays(30) > cert.NotAfter && !result.IsExpired;
-                            result.DaysUntilExpiry = (int)(cert.NotAfter - DateTime.UtcNow).TotalDays;
+                        _logger.LogWarning($"SSL Policy Errors: {sslPolicyErrors}");
+                    }
+                    return true; // Accept for monitoring, but log issues
+                }
+                await sslStream.AuthenticateAsClientAsync(host);
 
-                            // Determine status
-                            if (result.IsExpired)
-                                result.Status = CertificateStatus.Expired;
-                            else if (result.IsExpiringSoon)
-                                result.Status = CertificateStatus.ExpiringSoon;
-                            else if (sslPolicyErrors == SslPolicyErrors.None)
-                                result.Status = CertificateStatus.Valid;
-                            else
-                                result.Status = CertificateStatus.Invalid;
-                        }
+                if (sslStream.RemoteCertificate is X509Certificate rawCert)
+                {
+                    var cert = new X509Certificate2(rawCert);
+                    result.Success = true;
+                    result.CommonName = cert.Subject;
+                    result.Issuer = cert.Issuer;
+                    result.IssuedDate = cert.NotBefore;
+                    result.ExpiryDate = cert.NotAfter;
+                    result.Thumbprint = cert.Thumbprint;
+                    result.Algorithm = cert.SignatureAlgorithm.FriendlyName ?? cert.SignatureAlgorithm.Value ?? "Unknown";
 
-                        return true; // Always return true to avoid throwing, we handle validation ourselves
-                    };
+                    // Modern, non-obsolete method for key size
+                    if (cert.GetRSAPublicKey() is RSA rsaKey)
+                    {
+                        result.KeySize = rsaKey.KeySize;
+                    }
 
-                    using var response = await httpRequest.GetResponseAsync();
+                    result.IsExpired = DateTime.UtcNow > cert.NotAfter;
+                    result.IsExpiringSoon = DateTime.UtcNow.AddDays(30) > cert.NotAfter && !result.IsExpired;
+                    result.DaysUntilExpiry = (int)(cert.NotAfter - DateTime.UtcNow).TotalDays;
+
+                    result.Status = result.IsExpired
+                        ? CertificateStatus.Expired
+                        : result.IsExpiringSoon
+                            ? CertificateStatus.ExpiringSoon
+                            : CertificateStatus.Valid;
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Error = "No certificate found in SSL stream.";
+                    result.Status = CertificateStatus.Invalid;
                 }
             }
             catch (Exception ex)
@@ -143,6 +167,30 @@ namespace Beacon.Services
             return result;
         }
 
+        public async Task<string> TestUrlAsync(string url)
+        {
+            try
+            {
+                _logger.LogInformation($"Testing URL: {url}");
+
+                // Test basic HTTP request
+                using var response = await _httpClient.GetAsync(url);
+                var result = $"HTTP: {response.StatusCode} - {response.ReasonPhrase}";
+
+                // Test SSL if HTTPS
+                if (url.StartsWith("https://"))
+                {
+                    var sslResult = await CheckSslCertificateAsync(url);
+                    result += $" | SSL: {(sslResult.Success ? "OK" : sslResult.Error)}";
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                return $"Error: {ex.Message}";
+            }
+        }
         public async Task RunMonitoringCycleAsync()
         {
             using var scope = _serviceProvider.CreateScope();
@@ -198,7 +246,7 @@ namespace Beacon.Services
             monitor.UptimePercentage = monitor.TotalChecks > 0
                 ? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
                 : 0;
-
+            dbContext.Entry(monitor).State = EntityState.Modified;
             // Update or create certificate record if SSL check was performed
             if (result.CertificateResult != null && result.CertificateResult.Success)
             {
@@ -252,6 +300,9 @@ namespace Beacon.Services
             var monitors = await dbContext.UrlMonitors.ToListAsync();
             var certificates = await dbContext.Certificates.ToListAsync();
 
+            // Get monitors with response times for average calculation
+            var monitorsWithResponseTimes = monitors.Where(m => m.LastResponseTimeMs.HasValue).ToList();
+
             return new MonitoringStats
             {
                 TotalMonitors = monitors.Count,
@@ -263,9 +314,16 @@ namespace Beacon.Services
                 ValidCertificates = certificates.Count(c => c.Status == CertificateStatus.Valid),
                 ExpiredCertificates = certificates.Count(c => c.Status == CertificateStatus.Expired),
                 ExpiringSoonCertificates = certificates.Count(c => c.Status == CertificateStatus.ExpiringSoon),
-                AverageResponseTime = monitors.Where(m => m.LastResponseTimeMs.HasValue)
-                                            .Average(m => m.LastResponseTimeMs.Value),
-                OverallUptimePercentage = monitors.Any() ? monitors.Average(m => m.UptimePercentage) : 0
+
+                // Safe average calculation - returns 0 if no elements
+                AverageResponseTime = monitorsWithResponseTimes.Any()
+                    ? monitorsWithResponseTimes.Average(m => m.LastResponseTimeMs.Value)
+                    : 0,
+
+                // Safe uptime percentage calculation
+                OverallUptimePercentage = monitors.Any()
+                    ? monitors.Average(m => m.UptimePercentage)
+                    : 0
             };
         }
     }

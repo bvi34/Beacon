@@ -36,7 +36,7 @@ namespace Beacon.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("DeviceId")
+                    b.Property<int?>("DeviceId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ExpiryDate")
@@ -69,7 +69,13 @@ namespace Beacon.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CommonName");
+
                     b.HasIndex("DeviceId");
+
+                    b.HasIndex("ExpiryDate");
+
+                    b.HasIndex("Status");
 
                     b.HasIndex("Thumbprint");
 
@@ -95,7 +101,7 @@ namespace Beacon.Migrations
                         .HasMaxLength(45)
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("LastSeen")
+                    b.Property<DateTime?>("LastSeen")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Status")
@@ -129,7 +135,7 @@ namespace Beacon.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("LastChecked")
+                    b.Property<DateTime?>("LastChecked")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Port")
@@ -355,13 +361,104 @@ namespace Beacon.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("UrlMonitor", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CertificateId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CheckIntervalMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastChecked")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastDowntime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("LastResponseCode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<double?>("LastResponseTimeMs")
+                        .HasColumnType("REAL");
+
+                    b.Property<DateTime?>("LastUptime")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("MonitorSsl")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SuccessfulChecks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TimeoutSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TotalChecks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("UptimePercentage")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CertificateId");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Url");
+
+                    b.ToTable("UrlMonitors");
+                });
+
             modelBuilder.Entity("Beacon.Models.Certificate", b =>
                 {
                     b.HasOne("Beacon.Models.Device", "Device")
                         .WithMany("Certificates")
                         .HasForeignKey("DeviceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Device");
                 });
@@ -426,6 +523,21 @@ namespace Beacon.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("UrlMonitor", b =>
+                {
+                    b.HasOne("Beacon.Models.Certificate", "Certificate")
+                        .WithMany("UrlMonitors")
+                        .HasForeignKey("CertificateId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Certificate");
+                });
+
+            modelBuilder.Entity("Beacon.Models.Certificate", b =>
+                {
+                    b.Navigation("UrlMonitors");
                 });
 
             modelBuilder.Entity("Beacon.Models.Device", b =>

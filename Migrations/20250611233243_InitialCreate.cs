@@ -59,7 +59,7 @@ namespace Beacon.Migrations
                     Hostname = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     IpAddress = table.Column<string>(type: "TEXT", maxLength: 45, nullable: false),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    LastSeen = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastSeen = table.Column<DateTime>(type: "TEXT", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
@@ -180,7 +180,7 @@ namespace Beacon.Migrations
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
-                    DeviceId = table.Column<int>(type: "INTEGER", nullable: false),
+                    DeviceId = table.Column<int>(type: "INTEGER", nullable: true),
                     CommonName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
                     Thumbprint = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
                     IssuedDate = table.Column<DateTime>(type: "TEXT", nullable: false),
@@ -216,7 +216,7 @@ namespace Beacon.Migrations
                     ServiceName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
                     IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
                     Status = table.Column<int>(type: "INTEGER", nullable: false),
-                    LastChecked = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastChecked = table.Column<DateTime>(type: "TEXT", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
@@ -229,6 +229,45 @@ namespace Beacon.Migrations
                         principalTable: "Devices",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UrlMonitors",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Url = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    TimeoutSeconds = table.Column<int>(type: "INTEGER", nullable: false),
+                    CheckIntervalMinutes = table.Column<int>(type: "INTEGER", nullable: false),
+                    Status = table.Column<int>(type: "INTEGER", nullable: false),
+                    LastResponseCode = table.Column<int>(type: "INTEGER", nullable: true),
+                    LastResponseTimeMs = table.Column<double>(type: "REAL", nullable: true),
+                    LastChecked = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    LastUptime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    LastDowntime = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    LastError = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: false),
+                    CertificateId = table.Column<int>(type: "INTEGER", nullable: true),
+                    MonitorSsl = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ConsecutiveFailures = table.Column<int>(type: "INTEGER", nullable: false),
+                    TotalChecks = table.Column<int>(type: "INTEGER", nullable: false),
+                    SuccessfulChecks = table.Column<int>(type: "INTEGER", nullable: false),
+                    UptimePercentage = table.Column<double>(type: "REAL", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UrlMonitors", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UrlMonitors_Certificates_CertificateId",
+                        column: x => x.CertificateId,
+                        principalTable: "Certificates",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateIndex(
@@ -269,9 +308,24 @@ namespace Beacon.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Certificates_CommonName",
+                table: "Certificates",
+                column: "CommonName");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Certificates_DeviceId",
                 table: "Certificates",
                 column: "DeviceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Certificates_ExpiryDate",
+                table: "Certificates",
+                column: "ExpiryDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Certificates_Status",
+                table: "Certificates",
+                column: "Status");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Certificates_Thumbprint",
@@ -294,6 +348,31 @@ namespace Beacon.Migrations
                 table: "MonitoredPorts",
                 columns: new[] { "DeviceId", "Port", "Protocol" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UrlMonitors_CertificateId",
+                table: "UrlMonitors",
+                column: "CertificateId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UrlMonitors_IsActive",
+                table: "UrlMonitors",
+                column: "IsActive");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UrlMonitors_Name",
+                table: "UrlMonitors",
+                column: "Name");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UrlMonitors_Status",
+                table: "UrlMonitors",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UrlMonitors_Url",
+                table: "UrlMonitors",
+                column: "Url");
         }
 
         /// <inheritdoc />
@@ -315,16 +394,19 @@ namespace Beacon.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Certificates");
+                name: "MonitoredPorts");
 
             migrationBuilder.DropTable(
-                name: "MonitoredPorts");
+                name: "UrlMonitors");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Certificates");
 
             migrationBuilder.DropTable(
                 name: "Devices");
