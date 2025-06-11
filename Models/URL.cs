@@ -44,7 +44,7 @@ namespace Beacon.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
-        public UrlCertificate? Certificate { get; set; }
+        public Certificate? Certificate { get; set; }
 
         // Computed properties
         public bool IsUp => Status == UrlStatus.Up;
