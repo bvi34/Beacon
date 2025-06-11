@@ -6,6 +6,9 @@ using System.Text.Json;
 using Beacon.Models;
 using Beacon.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Sockets;
+using System;
+using System.Security.Cryptography;
 
 namespace Beacon.Services
 {
@@ -93,43 +96,47 @@ namespace Beacon.Services
             try
             {
                 var uri = new Uri(url);
-                var request = WebRequest.Create($"https://{uri.Host}:{(uri.Port == -1 ? 443 : uri.Port)}");
+                var host = uri.Host;
+                var port = uri.Port > 0 ? uri.Port : 443;
 
-                if (request is HttpWebRequest httpRequest)
+                using var tcpClient = new TcpClient();
+                await tcpClient.ConnectAsync(host, port);
+
+                using var sslStream = new SslStream(tcpClient.GetStream(), false, (sender, cert, chain, errors) => true);
+                await sslStream.AuthenticateAsClientAsync(host);
+
+                if (sslStream.RemoteCertificate is X509Certificate rawCert)
                 {
-                    httpRequest.Method = "HEAD";
-                    httpRequest.Timeout = 10000; // 10 second timeout
-                    httpRequest.ServerCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+                    var cert = new X509Certificate2(rawCert);
+                    result.Success = true;
+                    result.CommonName = cert.Subject;
+                    result.Issuer = cert.Issuer;
+                    result.IssuedDate = cert.NotBefore;
+                    result.ExpiryDate = cert.NotAfter;
+                    result.Thumbprint = cert.Thumbprint;
+                    result.Algorithm = cert.SignatureAlgorithm.FriendlyName ?? cert.SignatureAlgorithm.Value ?? "Unknown";
+
+                    // Modern, non-obsolete method for key size
+                    if (cert.GetRSAPublicKey() is RSA rsaKey)
                     {
-                        if (certificate is X509Certificate2 cert)
-                        {
-                            result.Success = true;
-                            result.CommonName = cert.Subject;
-                            result.Issuer = cert.Issuer;
-                            result.IssuedDate = cert.NotBefore;
-                            result.ExpiryDate = cert.NotAfter;
-                            result.Thumbprint = cert.Thumbprint;
-                            result.Algorithm = cert.SignatureAlgorithm.FriendlyName ?? cert.SignatureAlgorithm.Value ?? "Unknown";
-                            result.KeySize = cert.PublicKey.Key.KeySize;
-                            result.IsExpired = DateTime.UtcNow > cert.NotAfter;
-                            result.IsExpiringSoon = DateTime.UtcNow.AddDays(30) > cert.NotAfter && !result.IsExpired;
-                            result.DaysUntilExpiry = (int)(cert.NotAfter - DateTime.UtcNow).TotalDays;
+                        result.KeySize = rsaKey.KeySize;
+                    }
 
-                            // Determine status
-                            if (result.IsExpired)
-                                result.Status = CertificateStatus.Expired;
-                            else if (result.IsExpiringSoon)
-                                result.Status = CertificateStatus.ExpiringSoon;
-                            else if (sslPolicyErrors == SslPolicyErrors.None)
-                                result.Status = CertificateStatus.Valid;
-                            else
-                                result.Status = CertificateStatus.Invalid;
-                        }
+                    result.IsExpired = DateTime.UtcNow > cert.NotAfter;
+                    result.IsExpiringSoon = DateTime.UtcNow.AddDays(30) > cert.NotAfter && !result.IsExpired;
+                    result.DaysUntilExpiry = (int)(cert.NotAfter - DateTime.UtcNow).TotalDays;
 
-                        return true; // Always return true to avoid throwing, we handle validation ourselves
-                    };
-
-                    using var response = await httpRequest.GetResponseAsync();
+                    result.Status = result.IsExpired
+                        ? CertificateStatus.Expired
+                        : result.IsExpiringSoon
+                            ? CertificateStatus.ExpiringSoon
+                            : CertificateStatus.Valid;
+                }
+                else
+                {
+                    result.Success = false;
+                    result.Error = "No certificate found in SSL stream.";
+                    result.Status = CertificateStatus.Invalid;
                 }
             }
             catch (Exception ex)
@@ -142,6 +149,7 @@ namespace Beacon.Services
 
             return result;
         }
+
 
         public async Task RunMonitoringCycleAsync()
         {
