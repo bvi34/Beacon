@@ -8,15 +8,15 @@ namespace Beacon.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class MonitoringController : ControllerBase
+    public class UrlMonitorController : ControllerBase
     {
-        private readonly IUrlMonitoringService _monitoringService;
+        private readonly IUrlMonitoringService _urlMonitoringService;
         private readonly ApplicationDbContext _dbContext; // Replace with your actual DbContext
-        private readonly ILogger<MonitoringController> _logger;
+        private readonly ILogger<UrlMonitorController> _logger;
 
-        public MonitoringController(IUrlMonitoringService monitoringService, ApplicationDbContext dbContext, ILogger<MonitoringController> logger)
+        public UrlMonitorController(IUrlMonitoringService urlMonitoringService, ApplicationDbContext dbContext, ILogger<UrlMonitorController> logger)
         {
-            _monitoringService = monitoringService;
+            _urlMonitoringService = urlMonitoringService;
             _dbContext = dbContext;
             _logger = logger;
         }
@@ -26,7 +26,7 @@ namespace Beacon.Controllers
         {
             try
             {
-                var stats = await _monitoringService.GetMonitoringStatsAsync();
+                var stats = await _urlMonitoringService.GetMonitoringStatsAsync();
                 return Ok(stats);
             }
             catch (Exception ex)
@@ -37,15 +37,11 @@ namespace Beacon.Controllers
         }
 
         [HttpGet("monitors")]
-        public async Task<ActionResult<IEnumerable<UrlMonitor>>> GetAllMonitors()
+        public async Task<ActionResult<IEnumerable<UrlMonitor>>> GetMonitors()
         {
             try
             {
-                var monitors = await _dbContext.UrlMonitors
-                    .Include(m => m.Certificate)
-                    .OrderBy(m => m.Name)
-                    .ToListAsync();
-
+                var monitors = await _urlMonitoringService.GetAllMonitorsAsync();
                 return Ok(monitors);
             }
             catch (Exception ex)
@@ -85,7 +81,7 @@ namespace Beacon.Controllers
                 if (monitor == null)
                     return NotFound();
 
-                var result = await _monitoringService.CheckUrlAsync(monitor);
+                var result = await _urlMonitoringService.CheckUrlAsync(monitor);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -140,7 +136,7 @@ namespace Beacon.Controllers
         {
             try
             {
-                await _monitoringService.RunMonitoringCycleAsync();
+                await _urlMonitoringService.RunMonitoringCycleAsync();
                 return Ok(new { message = "Monitoring cycle completed successfully" });
             }
             catch (Exception ex)
@@ -155,7 +151,7 @@ namespace Beacon.Controllers
         {
             try
             {
-                var stats = await _monitoringService.GetMonitoringStatsAsync();
+                var stats = await _urlMonitoringService.GetMonitoringStatsAsync();
                 var monitors = await _dbContext.UrlMonitors
                     .Include(m => m.Certificate)
                     .OrderBy(m => m.Name)
@@ -184,14 +180,4 @@ namespace Beacon.Controllers
             }
         }
     }
-
-    public class DashboardData
-    {
-        public MonitoringStats Stats { get; set; } = new();
-        public List<UrlMonitor> Monitors { get; set; } = new();
-        public List<Certificate> ExpiringCertificates { get; set; } = new();
-        public DateTime LastUpdated { get; set; }
-    }
 }
-
-// Program.cs registration

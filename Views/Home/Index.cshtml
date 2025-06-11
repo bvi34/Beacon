@@ -139,6 +139,12 @@
             box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         }
 
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .theme-toggle {
             background: var(--card-bg);
             border: 2px solid var(--border-color);
@@ -167,41 +173,41 @@
             border-left: 4px solid var(--primary-color);
         }
 
-            .metric-card:hover {
-                transform: translateY(-5px);
-            }
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
 
-            .metric-card.online {
-                border-left-color: var(--success-color);
-            }
+        .metric-card.online {
+            border-left-color: var(--success-color);
+        }
 
-            .metric-card.offline {
-                border-left-color: var(--danger-color);
-            }
+        .metric-card.offline {
+            border-left-color: var(--danger-color);
+        }
 
-            .metric-card.warning {
-                border-left-color: var(--warning-color);
-            }
+        .metric-card.warning {
+            border-left-color: var(--warning-color);
+        }
 
-            .metric-card.total {
-                border-left-color: var(--info-color);
-            }
+        .metric-card.total {
+            border-left-color: var(--info-color);
+        }
 
-            .metric-card.urls-up {
-                border-left-color: var(--success-color);
-            }
+        .metric-card.urls-up {
+            border-left-color: var(--success-color);
+        }
 
-            .metric-card.urls-down {
-                border-left-color: var(--danger-color);
-            }
+        .metric-card.urls-down {
+            border-left-color: var(--danger-color);
+        }
 
-            .metric-card.cert-expiring {
-                border-left-color: var(--warning-color);
-            }
+        .metric-card.cert-expiring {
+            border-left-color: var(--warning-color);
+        }
 
-            .metric-card.cert-expired {
-                border-left-color: var(--danger-color);
-            }
+        .metric-card.cert-expired {
+            border-left-color: var(--danger-color);
+        }
 
         .metric-number {
             font-size: 3rem;
@@ -257,10 +263,10 @@
             transition: all 0.3s ease;
         }
 
-            .device-item:hover {
-                transform: translateX(5px);
-                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            }
+        .device-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
 
         .device-link {
             text-decoration: none;
@@ -270,9 +276,9 @@
             align-items: center;
         }
 
-            .device-link:hover {
-                color: var(--primary-color);
-            }
+        .device-link:hover {
+            color: var(--primary-color);
+        }
 
         .ip {
             color: var(--text-muted);
@@ -327,9 +333,9 @@
             transition: color 0.3s ease;
         }
 
-            .close:hover {
-                color: var(--danger-color);
-            }
+        .close:hover {
+            color: var(--danger-color);
+        }
 
         .modal-body {
             padding: 2rem;
@@ -346,29 +352,29 @@
             flex-direction: column;
         }
 
-            .form-group label {
-                margin-bottom: 0.5rem;
-                font-weight: 500;
-                color: var(--text-color);
-            }
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-color);
+        }
 
-            .form-group input,
-            .form-group textarea,
-            .form-group select {
-                padding: 0.75rem;
-                border: 2px solid var(--border-color);
-                border-radius: 8px;
-                background: var(--input-bg);
-                color: var(--text-color);
-                transition: border-color 0.3s ease;
-            }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 0.75rem;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: border-color 0.3s ease;
+        }
 
-                .form-group input:focus,
-                .form-group textarea:focus,
-                .form-group select:focus {
-                    outline: none;
-                    border-color: var(--primary-color);
-                }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
 
         .discovery-content {
             padding: 2rem;
@@ -386,13 +392,8 @@
         }
 
         @@keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .discovered-devices {
@@ -423,22 +424,22 @@
             transition: all 0.3s ease;
         }
 
-            .url-monitor-item:hover {
-                transform: translateX(5px);
-                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            }
+        .url-monitor-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
 
-            .url-monitor-item.status-down {
-                border-left-color: var(--danger-color);
-            }
+        .url-monitor-item.status-down {
+            border-left-color: var(--danger-color);
+        }
 
-            .url-monitor-item.status-error {
-                border-left-color: var(--warning-color);
-            }
+        .url-monitor-item.status-error {
+            border-left-color: var(--warning-color);
+        }
 
-            .url-monitor-item.status-timeout {
-                border-left-color: var(--warning-color);
-            }
+        .url-monitor-item.status-timeout {
+            border-left-color: var(--warning-color);
+        }
 
         .url-info .url-details {
             display: flex;
@@ -486,21 +487,21 @@
             font-size: 0.85em;
         }
 
-            .cert-info .cert-name {
-                font-weight: 500;
-                display: block;
-                color: var(--text-color);
-            }
+        .cert-info .cert-name {
+            font-weight: 500;
+            display: block;
+            color: var(--text-color);
+        }
 
-            .cert-info .cert-expiry {
-                color: var(--text-muted);
-                display: block;
-            }
+        .cert-info .cert-expiry {
+            color: var(--text-muted);
+            display: block;
+        }
 
-            .cert-info .cert-days {
-                font-weight: 500;
-                display: block;
-            }
+        .cert-info .cert-days {
+            font-weight: 500;
+            display: block;
+        }
 
         .cert-valid .cert-days {
             color: var(--success-color);
@@ -516,6 +517,26 @@
 
         .cert-none {
             color: var(--text-muted);
+        }
+
+        .error-message {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid var(--danger-color);
+        }
+
+        .loading-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
         }
 
         @@media (max-width: 768px) {
@@ -554,7 +575,7 @@
                 <button class="btn btn-primary" onclick="showAddDeviceModal()">📱 Add Device</button>
                 <button class="btn btn-secondary" onclick="showDiscoveryModal()">🔍 Discover Devices</button>
                 <button class="btn btn-accent" onclick="showUrlMonitorModal()">🌐 Add URL Monitor</button>
-                <button class="btn btn-outline" onclick="checkAllUrls()">🔄 Check All URLs</button>
+                <button class="btn btn-outline" onclick="checkAllUrls()" id="checkAllUrlsBtn">🔄 Check All URLs</button>
                 <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
             </div>
         </header>
@@ -736,310 +757,654 @@
             </div>
         </div>
     </div>
-    <
-</body>
 
-<script>
-    // Theme toggle setup
-    function toggleTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-    }
 
-    function initializeTheme() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-    }
+    <script>
+        // Data storage (in-memory since localStorage is not available)
+        let devices = [];
+        let urlMonitors = [];
+        let statusChart = null;
+        let responseChart = null;
 
-    // Modal controls
-    function showAddDeviceModal() {
-        document.getElementById('addDeviceModal').style.display = 'block';
-    }
-
-    function closeAddDeviceModal() {
-        document.getElementById('addDeviceModal').style.display = 'none';
-    }
-
-    function showDiscoveryModal() {
-        document.getElementById('discoveryModal').style.display = 'block';
-        document.getElementById('discoveryLoading').style.display = 'block';
-        document.getElementById('discoveryResults').style.display = 'none';
-        scanNetwork();
-    }
-
-    function closeDiscoveryModal() {
-        document.getElementById('discoveryModal').style.display = 'none';
-    }
-
-    function showUrlMonitorModal() {
-        document.getElementById('urlMonitorModal').style.display = 'block';
-    }
-
-    function closeUrlMonitorModal() {
-        document.getElementById('urlMonitorModal').style.display = 'none';
-    }
-
-    // Initialization
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeTheme();
-        loadMetrics();
-        loadChartData();
-        loadRecentDevices();
-        loadUrlMonitors();
-        initializeCharts();
-    });
-
-    // Load metrics
-    async function loadMetrics() {
-        try {
-            const deviceRes = await fetch('/api/Discovery/status');
-            const deviceData = await deviceRes.json();
-            document.querySelector('.metric-card.online .metric-number').textContent = deviceData.onlineDevices;
-            document.querySelector('.metric-card.offline .metric-number').textContent = deviceData.offlineDevices;
-            document.querySelector('.metric-card.warning .metric-number').textContent = deviceData.recentlyAddedDevices;
-            document.querySelector('.metric-card.total .metric-number').textContent = deviceData.totalManagedDevices;
-
-            const urlRes = await fetch('/api/UrlMonitor/status');
-            const urlData = await urlRes.json();
-            document.querySelector('.metric-card.urls-up .metric-number').textContent = urlData.upUrls;
-            document.querySelector('.metric-card.urls-down .metric-number').textContent = urlData.downUrls;
-            document.querySelector('.metric-card.cert-expiring .metric-number').textContent = urlData.expiringCertificates;
-            document.querySelector('.metric-card.cert-expired .metric-number').textContent = urlData.expiredCertificates;
-        } catch (error) {
-            console.error('Error loading metrics:', error);
-            document.querySelectorAll('.metric-number').forEach(el => el.textContent = '0');
+        // Theme toggle setup
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            
+            const themeToggle = document.querySelector('.theme-toggle');
+            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
         }
-    }
 
-    async function loadChartData() {
-        // Placeholder for future chart data
-    }
+        function initializeTheme() {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
 
-    async function loadRecentDevices() {
-        try {
-            const res = await fetch('/Devices/api/devices');
-            const data = await res.json();
-            const container = document.getElementById('deviceListContainer');
-            container.innerHTML = '';
+        // Modal controls
+        function showAddDeviceModal() {
+            document.getElementById('addDeviceModal').style.display = 'block';
+        }
 
-            if (data.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No devices found</p>';
-                return;
-            }
+        function closeAddDeviceModal() {
+            document.getElementById('addDeviceModal').style.display = 'none';
+            document.getElementById('addDeviceForm').reset();
+        }
 
-            data.slice(0, 10).forEach(device => {
-                const statusClass = device.status ? device.status.toLowerCase() : 'unknown';
-                const el = document.createElement('div');
-                el.className = 'device-item';
-                el.innerHTML = `
-                            <a href='/Devices/Details/${device.id}' class='device-link'>
-                                <div>
-                                    <strong>${device.hostname}</strong>
-                                    <span class='ip'>${device.ipAddress}</span>
-                                </div>
-                                <span class='status status-${statusClass}'>${device.status || 'Unknown'}</span>
-                            </a>
-                        `;
-                container.appendChild(el);
+        function showDiscoveryModal() {
+            document.getElementById('discoveryModal').style.display = 'block';
+            document.getElementById('discoveryLoading').style.display = 'block';
+            document.getElementById('discoveryResults').style.display = 'none';
+            scanNetwork();
+        }
+
+        function closeDiscoveryModal() {
+            document.getElementById('discoveryModal').style.display = 'none';
+        }
+
+        function showUrlMonitorModal() {
+            document.getElementById('urlMonitorModal').style.display = 'block';
+        }
+
+        function closeUrlMonitorModal() {
+            document.getElementById('urlMonitorModal').style.display = 'none';
+            document.getElementById('urlMonitorForm').reset();
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
             });
-        } catch (error) {
-            console.error('Error loading devices:', error);
-            document.getElementById('deviceListContainer').innerHTML =
-                '<p style="text-align: center; color: var(--text-muted);">Error loading devices</p>';
         }
-    }
 
-    async function loadUrlMonitors() {
-        try {
-            const res = await fetch('/api/UrlMonitor/status');
-            const data = await res.json();
-            const container = document.getElementById('urlMonitorContainer');
-            container.innerHTML = '';
+        // Device management
+        function addDevice() {
+            const form = document.getElementById('addDeviceForm');
+            const formData = new FormData(form);
+            
+            const device = {
+                id: Date.now(),
+                ipAddress: formData.get('ipAddress'),
+                hostname: formData.get('hostname') || 'Unknown',
+                deviceType: formData.get('deviceType') || 'other',
+                description: formData.get('description') || '',
+                monitoringEnabled: formData.get('monitoringEnabled') === 'on',
+                status: 'checking',
+                lastSeen: new Date().toISOString(),
+                responseTime: null
+            };
 
-            if (!data.monitors || data.monitors.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No URL monitors configured</p>';
-                return;
-            }
-
-            data.monitors.slice(0, 10).forEach(monitor => {
-                const statusClass = monitor.status.toLowerCase();
-                const certStatus = monitor.certificate ?
-                    (monitor.certificate.isExpired ? 'expired' :
-                        monitor.certificate.isExpiringSoon ? 'expiring' : 'valid') : 'none';
-
-                const el = document.createElement('div');
-                el.className = `url-monitor-item status-${statusClass}`;
-                el.innerHTML = `
-                            <div class="url-info">
-                                <strong>${monitor.name}</strong>
-                                <div class="url-details">
-                                    <span class="url">${monitor.url}</span>
-                                    <span class="status status-${statusClass}">${monitor.status}</span>
-                                    ${monitor.responseTime ? `<span class="response-time">${monitor.responseTime.toFixed(0)}ms</span>` : ''}
-                                </div>
-                            </div>
-                            ${monitor.certificate ? `
-                                <div class="cert-info cert-${certStatus}">
-                                    <span class="cert-name">${monitor.certificate.commonName}</span>
-                                    <span class="cert-expiry">Expires: ${new Date(monitor.certificate.expiryDate).toLocaleDateString()}</span>
-                                    <span class="cert-days">${monitor.certificate.daysUntilExpiry} days left</span>
-                                </div>
-                            ` : '<div class="cert-info cert-none">No SSL Certificate</div>'}
-                        `;
-                container.appendChild(el);
-            });
-        } catch (error) {
-            console.error('Error loading URL monitors:', error);
-            document.getElementById('urlMonitorContainer').innerHTML =
-                '<p style="text-align: center; color: var(--text-muted);">Error loading URL monitors</p>';
+            devices.push(device);
+            closeAddDeviceModal();
+            loadMetrics();
+            loadRecentDevices();
+            
+            // Simulate device ping
+            setTimeout(() => {
+                device.status = Math.random() > 0.3 ? 'online' : 'offline';
+                device.responseTime = device.status === 'online' ? Math.floor(Math.random() * 100) + 10 : null;
+                loadMetrics();
+                loadRecentDevices();
+            }, 2000);
         }
-    }
 
-    async function scanNetwork() {
-        try {
-            const res = await fetch('/api/Discovery/scan-local', { method: 'POST' });
-            const data = await res.json();
-            const list = document.getElementById('discoveredDevicesList');
-            list.innerHTML = '';
+        function scanNetwork() {
+            // Simulate network discovery
+            setTimeout(() => {
+                const discoveredDevices = [
+                    { ip: '192.168.1.1', hostname: 'router.local', type: 'router' },
+                    { ip: '192.168.1.10', hostname: 'server-01', type: 'server' },
+                    { ip: '192.168.1.15', hostname: 'printer-hp', type: 'printer' },
+                    { ip: '192.168.1.25', hostname: 'workstation-01', type: 'workstation' },
+                    { ip: '192.168.1.50', hostname: 'nas-storage', type: 'server' }
+                ];
 
-            if (!data.length) {
-                list.innerHTML = '<p style="text-align:center;color:var(--text-muted);">No devices found</p>';
-            } else {
-                data.forEach((device, i) => {
-                    const item = document.createElement('div');
-                    item.className = 'discovered-device';
-                    item.innerHTML = `<input type='checkbox' id='device-${i}' data-device='${JSON.stringify(device)}'> <label for='device-${i}'>${device.hostname || device.ipAddress}</label>`;
-                    list.appendChild(item);
+                const container = document.getElementById('discoveredDevicesList');
+                container.innerHTML = '';
+
+                discoveredDevices.forEach(device => {
+                    const deviceEl = document.createElement('div');
+                    deviceEl.className = 'discovered-device';
+                    deviceEl.innerHTML = `
+                        <input type="checkbox" id="device-${device.ip}" value="${device.ip}">
+                        <label for="device-${device.ip}" style="flex: 1; cursor: pointer;">
+                            <strong>${device.hostname}</strong><br>
+                            <span style="color: var(--text-muted); font-size: 0.9em;">${device.ip} - ${device.type}</span>
+                        </label>
+                    `;
+                    container.appendChild(deviceEl);
                 });
-            }
 
-            document.getElementById('discoveryLoading').style.display = 'none';
-            document.getElementById('discoveryResults').style.display = 'block';
-        } catch (err) {
-            console.error('Discovery error:', err);
-            document.getElementById('discoveryLoading').innerHTML = '<p style="color:var(--danger-color);">Error scanning network</p>';
+                document.getElementById('discoveryLoading').style.display = 'none';
+                document.getElementById('discoveryResults').style.display = 'block';
+            }, 3000);
         }
-    }
 
-    async function addSelectedDevices() {
-        const checkboxes = document.querySelectorAll('#discoveredDevicesList input[type="checkbox"]:checked');
-        const selected = Array.from(checkboxes).map(cb => JSON.parse(cb.dataset.device));
+        function addSelectedDevices() {
+            const checkboxes = document.querySelectorAll('#discoveredDevicesList input[type="checkbox"]:checked');
+            let addedCount = 0;
 
-        try {
-            const res = await fetch('/api/Discovery/add-devices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(selected)
+            checkboxes.forEach(checkbox => {
+                const ip = checkbox.value;
+                const label = checkbox.nextElementSibling;
+                const hostname = label.querySelector('strong').textContent;
+                const typeMatch = label.textContent.match(/- (\w+)$/);
+                const type = typeMatch ? typeMatch[1] : 'other';
+
+                // Check if device already exists
+                const existingDevice = devices.find(d => d.ipAddress === ip);
+                if (!existingDevice) {
+                    const device = {
+                        id: Date.now() + addedCount,
+                        ipAddress: ip,
+                        hostname: hostname,
+                        deviceType: type,
+                        description: `Discovered via network scan`,
+                        monitoringEnabled: true,
+                        status: 'checking',
+                        lastSeen: new Date().toISOString(),
+                        responseTime: null
+                    };
+
+                    devices.push(device);
+                    addedCount++;
+
+                    // Simulate device ping
+                    setTimeout(() => {
+                        device.status = Math.random() > 0.2 ? 'online' : 'offline';
+                        device.responseTime = device.status === 'online' ? Math.floor(Math.random() * 100) + 10 : null;
+                        loadMetrics();
+                        loadRecentDevices();
+                    }, 1000 + Math.random() * 3000);
+                }
             });
 
-            if (res.ok) {
-                alert('Devices added successfully');
+            if (addedCount > 0) {
                 closeDiscoveryModal();
-                loadRecentDevices();
                 loadMetrics();
-            } else {
-                throw new Error('Failed to add devices');
-            }
-        } catch (error) {
-            console.error('Add devices error:', error);
-            alert('Error adding devices');
-        }
-    }
-
-    async function addDevice() {
-        const form = document.getElementById('addDeviceForm');
-        const data = Object.fromEntries(new FormData(form));
-        data.monitoringEnabled = form.monitoringEnabled.checked;
-
-        try {
-            const res = await fetch('/api/Devices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (res.ok) {
-                alert('Device added');
-                closeAddDeviceModal();
                 loadRecentDevices();
-                loadMetrics();
+                alert(`Added ${addedCount} new devices to monitoring`);
             } else {
-                throw new Error('Failed to add device');
+                alert('No new devices selected or all selected devices already exist');
             }
-        } catch (error) {
-            console.error('Add device error:', error);
-            alert('Error adding device');
         }
-    }
 
-    async function addUrlMonitor() {
-        const form = document.getElementById('urlMonitorForm');
-        const data = Object.fromEntries(new FormData(form));
+        // URL Monitor management
+        function addUrlMonitor() {
+            const form = document.getElementById('urlMonitorForm');
+            const formData = new FormData(form);
+            
+            const monitor = {
+                id: Date.now(),
+                url: formData.get('url'),
+                name: formData.get('name') || new URL(formData.get('url')).hostname,
+                description: formData.get('description') || '',
+                checkInterval: parseInt(formData.get('checkInterval')),
+                timeout: parseInt(formData.get('timeout')),
+                status: 'checking',
+                responseTime: null,
+                lastCheck: new Date().toISOString(),
+                sslCert: null
+            };
 
-        try {
-            const res = await fetch('/api/UrlMonitor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            urlMonitors.push(monitor);
+            closeUrlMonitorModal();
+            loadMetrics();
+            loadUrlMonitors();
+            
+            // Simulate URL check
+            checkUrl(monitor);
+        }
 
-            if (res.ok) {
-                alert('Monitor added');
-                closeUrlMonitorModal();
+        function checkUrl(monitor) {
+            // Simulate URL checking
+            setTimeout(() => {
+                const isUp = Math.random() > 0.15;
+                monitor.status = isUp ? 'up' : ['down', 'error', 'timeout'][Math.floor(Math.random() * 3)];
+                monitor.responseTime = isUp ? Math.floor(Math.random() * 2000) + 100 : null;
+                monitor.lastCheck = new Date().toISOString();
+                
+                // Simulate SSL certificate info
+                if (monitor.url.startsWith('https://') && isUp) {
+                    const daysUntilExpiry = Math.floor(Math.random() * 365) + 1;
+                    monitor.sslCert = {
+                        subject: monitor.name,
+                        expiryDate: new Date(Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000).toISOString(),
+                        daysUntilExpiry: daysUntilExpiry
+                    };
+                }
+                
+                loadMetrics();
                 loadUrlMonitors();
-                loadMetrics();
-            } else {
-                throw new Error('Failed to add monitor');
+            }, 1000 + Math.random() * 2000);
+        }
+
+        function checkAllUrls() {
+            urlMonitors.forEach(monitor => {
+                monitor.status = 'checking';
+                monitor.lastCheck = new Date().toISOString();
+                checkUrl(monitor);
+            });
+            loadUrlMonitors();
+        }
+
+        // Data loading functions
+        function loadMetrics() {
+            const onlineDevices = devices.filter(d => d.status === 'online').length;
+            const offlineDevices = devices.filter(d => d.status === 'offline').length;
+            const recentDevices = devices.filter(d => {
+                const deviceTime = new Date(d.lastSeen);
+                const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                return deviceTime > hourAgo;
+            }).length;
+
+            const urlsUp = urlMonitors.filter(m => m.status === 'up').length;
+            const urlsDown = urlMonitors.filter(m => ['down', 'error', 'timeout'].includes(m.status)).length;
+            
+            const certsExpiring = urlMonitors.filter(m => 
+                m.sslCert && m.sslCert.daysUntilExpiry <= 30 && m.sslCert.daysUntilExpiry > 0
+            ).length;
+            const certsExpired = urlMonitors.filter(m => 
+                m.sslCert && m.sslCert.daysUntilExpiry <= 0
+            ).length;
+
+            document.querySelector('.metric-card.online .metric-number').textContent = onlineDevices;
+            document.querySelector('.metric-card.offline .metric-number').textContent = offlineDevices;
+            document.querySelector('.metric-card.warning .metric-number').textContent = recentDevices;
+            document.querySelector('.metric-card.total .metric-number').textContent = devices.length;
+            document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
+            document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
+            document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
+            document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+
+            updateCharts();
+        }
+
+        function loadRecentDevices() {
+            const container = document.getElementById('deviceListContainer');
+            
+            if (devices.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No devices added yet. Click "Add Device" to get started.</p>';
+                return;
             }
-        } catch (error) {
-            console.error('Add monitor error:', error);
-            alert('Error adding monitor');
+
+            const sortedDevices = [...devices].sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+            
+            container.innerHTML = sortedDevices.map(device => {
+                const statusIcon = device.status === 'online' ? '🟢' : 
+                                 device.status === 'offline' ? '🔴' : '🟡';
+                const lastSeen = new Date(device.lastSeen).toLocaleString();
+                
+                return `
+                    <div class="device-item">
+                        <a href="#" class="device-link">
+                            <div>
+                                <strong>${statusIcon} ${device.hostname}</strong>
+                                <div class="ip">${device.ipAddress} • ${device.deviceType} • Last seen: ${lastSeen}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                ${device.responseTime ? `${device.responseTime}ms` : '—'}
+                            </div>
+                        </a>
+                    </div>
+                `;
+            }).join('');
         }
-    }
 
-    async function checkAllUrls() {
-        try {
-            await fetch('/api/UrlMonitor/check-all', { method: 'POST' });
-            await loadUrlMonitors();
-            await loadMetrics();
-        } catch (error) {
-            console.error('Check all URLs error:', error);
-            alert('Error checking URLs');
+        function loadUrlMonitors() {
+            const container = document.getElementById('urlMonitorContainer');
+            
+            if (urlMonitors.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No URL monitors configured. Click "Add URL Monitor" to get started.</p>';
+                return;
+            }
+            function loadCertificateMetrics(dashboardData) {
+                // Get certificate metrics from API data
+                const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
+                const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
+                    m.Certificate && m.Certificate.DaysUntilExpiry <= 0
+                ).length : 0;
+
+                // Update certificate metric cards
+                document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
+                document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+            }
+            async function loadDashboardData() {
+                try {
+                    const response = await fetch('/api/urlmonitor/dashboard-data');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const dashboardData = await response.json();
+
+                    // Update metrics using API data
+                    updateMetricsFromAPI(dashboardData);
+
+                    // Update URL monitors display
+                    updateUrlMonitorsFromAPI(dashboardData.Monitors || []);
+
+                    // Update charts
+                    updateCharts();
+
+                    return dashboardData;
+                } catch (error) {
+                    console.error('Error loading dashboard data:', error);
+                    // Fallback to existing in-memory data if API fails
+                    loadMetrics();
+                    loadUrlMonitors();
+                }
+            }
+
+            // Helper function to update metrics from API data
+            function updateMetricsFromAPI(dashboardData) {
+                const stats = dashboardData.Stats || {};
+
+                // Device metrics (keep existing logic if no device API)
+                const onlineDevices = devices.filter(d => d.status === 'online').length;
+                const offlineDevices = devices.filter(d => d.status === 'offline').length;
+                const recentDevices = devices.filter(d => {
+                    const deviceTime = new Date(d.lastSeen);
+                    const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                    return deviceTime > hourAgo;
+                }).length;
+
+                // URL metrics from API
+                const urlsUp = stats.UpMonitors || 0;
+                const urlsDown = stats.DownMonitors || 0;
+
+                // Certificate metrics from API
+                const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
+                const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
+                    m.Certificate && m.Certificate.DaysUntilExpiry <= 0
+                ).length : 0;
+
+                // Update all metric cards
+                document.querySelector('.metric-card.online .metric-number').textContent = onlineDevices;
+                document.querySelector('.metric-card.offline .metric-number').textContent = offlineDevices;
+                document.querySelector('.metric-card.warning .metric-number').textContent = recentDevices;
+                document.querySelector('.metric-card.total .metric-number').textContent = devices.length;
+                document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
+                document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
+                document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
+                document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+            }
+
+            // Helper function to update URL monitors from API data
+            function updateUrlMonitorsFromAPI(monitors) {
+                const container = document.getElementById('urlMonitorContainer');
+
+                if (monitors.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No URL monitors configured. Click "Add URL Monitor" to get started.</p>';
+                    return;
+                }
+
+                container.innerHTML = monitors.map(monitor => {
+                    // Map API status to display status
+                    const statusClass = `status-${monitor.Status.toLowerCase()}`;
+                    const statusText = monitor.Status.charAt(0).toUpperCase() + monitor.Status.slice(1);
+                    const lastCheck = new Date(monitor.LastCheck).toLocaleString();
+
+                    // Use the certificate rendering function
+                    const certInfo = renderCertificateInfo(monitor);
+
+                    return `
+                    <div class="url-monitor-item ${statusClass}">
+                        <div class="url-info">
+                            <strong>${monitor.Name}</strong>
+                            <div class="url-details">
+                                <span class="url">${monitor.Url}</span>
+                                <span class="status ${statusClass}">${statusText}</span>
+                                <span class="response-time">${monitor.ResponseTime ? `${monitor.ResponseTime}ms` : '—'}</span>
+                            </div>
+                        </div>
+                        ${certInfo}
+                    </div>
+                `;
+                }).join('');
+            }
+
+            // Updated initialize function to use API data
+            function initialize() {
+                initializeTheme();
+
+                // Load data from API
+                loadDashboardData();
+
+                // Load device data (keep existing logic)
+                loadRecentDevices();
+
+                // Auto-refresh every 30 seconds using API
+                setInterval(() => {
+                    loadDashboardData();
+
+                    // Keep existing device simulation
+                    devices.forEach(device => {
+                        if (Math.random() > 0.9) { // 10% chance to change status
+                            device.status = device.status === 'online' ? 'offline' : 'online';
+                            device.lastSeen = new Date().toISOString();
+                            device.responseTime = device.status === 'online' ? Math.floor(Math.random() * 100) + 10 : null;
+                        }
+                    });
+
+                    loadRecentDevices();
+                }, 30000);
+            }
+            // Updated loadUrlMonitors function - certificate display section only
+            function renderCertificateInfo(monitor) {
+                let certInfo = '';
+
+                if (monitor.Certificate) {
+                    const cert = monitor.Certificate;
+                    const certClass = cert.DaysUntilExpiry <= 0 ? 'cert-expired' :
+                        cert.DaysUntilExpiry <= 30 ? 'cert-expiring' : 'cert-valid';
+
+                    const daysText = cert.DaysUntilExpiry <= 0 ? 'Expired' :
+                        cert.DaysUntilExpiry === 1 ? '1 day' :
+                            `${cert.DaysUntilExpiry} days`;
+
+                    const expiryDate = new Date(cert.ExpiryDate).toLocaleDateString();
+
+                    certInfo = `
+                    <div class="cert-info ${certClass}">
+                        <span class="cert-name">${cert.Subject || monitor.Name}</span>
+                        <span class="cert-expiry">Expires: ${expiryDate}</span>
+                        <span class="cert-days">${daysText}</span>
+                    </div>
+                `;
+                } else if (monitor.Url && monitor.Url.startsWith('https://')) {
+                    certInfo = '<div class="cert-info cert-none">No certificate info</div>';
+                }
+
+                return certInfo;
+            }
+
+            // New function to fetch and display expiring certificates
+            async function loadExpiringCertificates(days = 30) {
+                try {
+                    const response = await fetch(`/api/urlmonitor/certificates/expiring?days=${days}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const expiringCerts = await response.json();
+                    return expiringCerts;
+                } catch (error) {
+                    console.error('Error loading expiring certificates:', error);
+                    return [];
+                }
+            }
+
+            // New function to get all certificates
+            async function loadAllCertificates() {
+                try {
+                    const response = await fetch('/api/urlmonitor/certificates');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const certificates = await response.json();
+                    return certificates;
+                } catch (error) {
+                    console.error('Error loading certificates:', error);
+                    return [];
+                }
+            }
+
+            container.innerHTML = urlMonitors.map(monitor => {
+                const statusClass = `status-${monitor.status}`;
+                const statusText = monitor.status.charAt(0).toUpperCase() + monitor.status.slice(1);
+                const lastCheck = new Date(monitor.lastCheck).toLocaleString();
+                
+                let certInfo = '';
+                if (monitor.sslCert) {
+                    const certClass = monitor.sslCert.daysUntilExpiry <= 0 ? 'cert-expired' :
+                                     monitor.sslCert.daysUntilExpiry <= 30 ? 'cert-expiring' : 'cert-valid';
+                    const daysText = monitor.sslCert.daysUntilExpiry <= 0 ? 'Expired' :
+                                    `${monitor.sslCert.daysUntilExpiry} days`;
+                    
+                    certInfo = `
+                        <div class="cert-info ${certClass}">
+                            <span class="cert-name">${monitor.sslCert.subject}</span>
+                            <span class="cert-expiry">Expires: ${new Date(monitor.sslCert.expiryDate).toLocaleDateString()}</span>
+                            <span class="cert-days">${daysText}</span>
+                        </div>
+                    `;
+                } else if (monitor.url.startsWith('https://')) {
+                    certInfo = '<div class="cert-info cert-none">No certificate info</div>';
+                }
+
+                return `
+                    <div class="url-monitor-item ${statusClass}">
+                        <div class="url-info">
+                            <strong>${monitor.name}</strong>
+                            <div class="url-details">
+                                <span class="url">${monitor.url}</span>
+                                <span class="status ${statusClass}">${statusText}</span>
+                                <span class="response-time">${monitor.responseTime ? `${monitor.responseTime}ms` : '—'}</span>
+                            </div>
+                        </div>
+                        ${certInfo}
+                    </div>
+                `;
+            }).join('');
         }
-    }
 
-    function initializeCharts() {
-        const ctxStatus = document.getElementById('statusChart').getContext('2d');
-        const ctxResponse = document.getElementById('responseChart').getContext('2d');
+        function updateCharts() {
+            updateStatusChart();
+            updateResponseChart();
+        }
 
-        new Chart(ctxStatus, {
-            type: 'line',
-            data: {
-                labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-                datasets: [{
-                    label: 'Online Devices',
-                    data: [12, 19, 3, 5, 2, 3, 7],
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim(),
-                    fill: false
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
+        function updateStatusChart() {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            
+            if (statusChart) {
+                statusChart.destroy();
+            }
 
-        new Chart(ctxResponse, {
-            type: 'bar',
-            data: {
-                labels: ["Example.com", "API.site", "Service.local"],
-                datasets: [{
-                    label: 'Response Time (ms)',
-                    data: [250, 180, 300],
-                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim()
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-        });
-    }
-</script>
+            const hours = [];
+            const onlineData = [];
+            const offlineData = [];
+          
+
+            statusChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Online',
+                        data: onlineData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Offline',
+                        data: offlineData,
+                        borderColor: '#dc3545',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateResponseChart() {
+            const ctx = document.getElementById('responseChart').getContext('2d');
+            
+            if (responseChart) {
+                responseChart.destroy();
+            }
+
+            const urls = urlMonitors.slice(0, 6).map(m => m.name);
+            const responseTimes = urlMonitors.slice(0, 6).map(m => m.responseTime || 0);
+
+            responseChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: urls,
+                    datasets: [{
+                        label: 'Response Time (ms)',
+                        data: responseTimes,
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#f093fb',
+                            '#28a745',
+                            '#17a2b8',
+                            '#ffc107'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Response Time (ms)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize the application
+        function initialize() {
+            initializeTheme();
+            loadMetrics();
+            loadRecentDevices();
+            loadUrlMonitors();
+                
+                loadMetrics();
+                loadRecentDevices();
+            }, 30000);
+        }
+
+        // Start the application when page loads
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
 </html>
