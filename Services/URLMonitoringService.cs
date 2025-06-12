@@ -19,6 +19,7 @@ namespace Beacon.Services
         Task RunMonitoringCycleAsync();
         Task<MonitoringStats> GetMonitoringStatsAsync();
         Task<List<UrlMonitor>> GetAllMonitorsAsync();
+        Task<string> TestSimpleUrlAsync(string url); // Added for debugging
     }
 
     public class UrlMonitoringService : IUrlMonitoringService
@@ -36,21 +37,21 @@ namespace Beacon.Services
             // Configure HttpClient with a longer timeout than individual requests
             _httpClient.Timeout = TimeSpan.FromMinutes(2); // Longer than any individual monitor timeout
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Beacon-Monitor/1.0");
-
         }
+
         public async Task<UrlMonitorResult> CheckUrlAsync(UrlMonitor urlMonitor)
         {
-            _logger.LogInformation($"Starting URL check for {urlMonitor.Url}");
+            _logger.LogInformation($"=== STARTING URL CHECK === Monitor ID: {urlMonitor.Id}, URL: {urlMonitor.Url}");
+
             var stopwatch = Stopwatch.StartNew();
             var result = new UrlMonitorResult { UrlMonitorId = urlMonitor.Id };
 
             try
             {
-
-                _logger.LogDebug($"Creating cancellation token with {urlMonitor.TimeoutSeconds} seconds timeout");
+                _logger.LogInformation($"Creating timeout for {urlMonitor.TimeoutSeconds} seconds");
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(urlMonitor.TimeoutSeconds));
 
-                _logger.LogDebug($"Making HTTP request to {urlMonitor.Url}");
+                _logger.LogInformation($"Making HTTP request to {urlMonitor.Url}");
                 using var response = await _httpClient.GetAsync(urlMonitor.Url, cts.Token);
 
                 stopwatch.Stop();
@@ -61,24 +62,39 @@ namespace Beacon.Services
                 result.Status = response.IsSuccessStatusCode ? UrlStatus.Up : UrlStatus.Down;
                 result.CheckedAt = DateTime.UtcNow;
 
+                _logger.LogInformation($"HTTP Request SUCCESS: {urlMonitor.Url} -> Status: {result.StatusCode}, Time: {result.ResponseTimeMs:F2}ms");
+
                 // Check SSL certificate if it's HTTPS and monitoring is enabled
                 if (urlMonitor.IsHttps && urlMonitor.MonitorSsl)
                 {
+                    _logger.LogInformation($"Starting SSL check for {urlMonitor.Url}");
                     result.CertificateResult = await CheckSslCertificateAsync(urlMonitor.Url);
+                    _logger.LogInformation($"SSL check completed: Success={result.CertificateResult.Success}");
                 }
 
-                _logger.LogInformation($"URL check completed for {urlMonitor.Url}: {result.Status} ({result.StatusCode}) in {result.ResponseTimeMs:F2}ms");
+                _logger.LogInformation($"=== URL CHECK COMPLETED === {urlMonitor.Url}: {result.Status} ({result.StatusCode}) in {result.ResponseTimeMs:F2}ms");
             }
-            catch (TaskCanceledException)
+            catch (TaskCanceledException ex)
             {
                 stopwatch.Stop();
                 result.Success = false;
                 result.Status = UrlStatus.Timeout;
-                result.Error = "Request timed out";
+                result.Error = $"Request timed out after {urlMonitor.TimeoutSeconds}s";
                 result.ResponseTimeMs = stopwatch.Elapsed.TotalMilliseconds;
                 result.CheckedAt = DateTime.UtcNow;
 
-                _logger.LogWarning($"URL check timed out for {urlMonitor.Url} after {urlMonitor.TimeoutSeconds} seconds");
+                _logger.LogWarning($"=== TIMEOUT === {urlMonitor.Url} timed out after {urlMonitor.TimeoutSeconds}s. Actual time: {result.ResponseTimeMs:F2}ms. InnerException: {ex.InnerException?.Message}");
+            }
+            catch (HttpRequestException ex)
+            {
+                stopwatch.Stop();
+                result.Success = false;
+                result.Status = UrlStatus.Error;
+                result.Error = $"HTTP Error: {ex.Message}";
+                result.ResponseTimeMs = stopwatch.Elapsed.TotalMilliseconds;
+                result.CheckedAt = DateTime.UtcNow;
+
+                _logger.LogError(ex, $"=== HTTP ERROR === {urlMonitor.Url}: {ex.Message}");
             }
             catch (Exception ex)
             {
@@ -89,7 +105,7 @@ namespace Beacon.Services
                 result.ResponseTimeMs = stopwatch.Elapsed.TotalMilliseconds;
                 result.CheckedAt = DateTime.UtcNow;
 
-                _logger.LogError(ex, $"Error checking URL {urlMonitor.Url}");
+                _logger.LogError(ex, $"=== GENERAL ERROR === {urlMonitor.Url}: {ex.GetType().Name} - {ex.Message}");
             }
 
             return result;
@@ -105,21 +121,20 @@ namespace Beacon.Services
                 var host = uri.Host;
                 var port = uri.Port > 0 ? uri.Port : 443;
 
+                _logger.LogInformation($"Connecting to {host}:{port} for SSL check");
+
                 using var tcpClient = new TcpClient();
-                await tcpClient.ConnectAsync(host, port);
+
+                // Add timeout for TCP connection
+                var connectTask = tcpClient.ConnectAsync(host, port);
+                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+
+                if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
+                {
+                    throw new TimeoutException($"TCP connection to {host}:{port} timed out");
+                }
 
                 using var sslStream = new SslStream(tcpClient.GetStream(), false, ValidateCertificate);
-
-                 bool ValidateCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
-                {
-                    // For monitoring purposes, we want to capture certificate info even if there are errors
-                    // but we should log the errors
-                    if (sslPolicyErrors != SslPolicyErrors.None)
-                    {
-                        _logger.LogWarning($"SSL Policy Errors: {sslPolicyErrors}");
-                    }
-                    return true; // Accept for monitoring, but log issues
-                }
                 await sslStream.AuthenticateAsClientAsync(host);
 
                 if (sslStream.RemoteCertificate is X509Certificate rawCert)
@@ -148,12 +163,15 @@ namespace Beacon.Services
                         : result.IsExpiringSoon
                             ? CertificateStatus.ExpiringSoon
                             : CertificateStatus.Valid;
+
+                    _logger.LogInformation($"SSL certificate retrieved successfully for {url}: {result.CommonName}, Expires: {result.ExpiryDate:yyyy-MM-dd}");
                 }
                 else
                 {
                     result.Success = false;
                     result.Error = "No certificate found in SSL stream.";
                     result.Status = CertificateStatus.Invalid;
+                    _logger.LogWarning($"No certificate found for {url}");
                 }
             }
             catch (Exception ex)
@@ -167,117 +185,138 @@ namespace Beacon.Services
             return result;
         }
 
-        public async Task<string> TestUrlAsync(string url)
+        private bool ValidateCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
-            try
+            // For monitoring purposes, we want to capture certificate info even if there are errors
+            // but we should log the errors
+            if (sslPolicyErrors != SslPolicyErrors.None)
             {
-                _logger.LogInformation($"Testing URL: {url}");
-
-                // Test basic HTTP request
-                using var response = await _httpClient.GetAsync(url);
-                var result = $"HTTP: {response.StatusCode} - {response.ReasonPhrase}";
-
-                // Test SSL if HTTPS
-                if (url.StartsWith("https://"))
-                {
-                    var sslResult = await CheckSslCertificateAsync(url);
-                    result += $" | SSL: {(sslResult.Success ? "OK" : sslResult.Error)}";
-                }
-
-                return result;
+                _logger.LogWarning($"SSL Policy Errors: {sslPolicyErrors}");
             }
-            catch (Exception ex)
-            {
-                return $"Error: {ex.Message}";
-            }
+            return true; // Accept for monitoring, but log issues
         }
+
         public async Task RunMonitoringCycleAsync()
         {
+            _logger.LogInformation("=== STARTING MONITORING CYCLE ===");
+
             using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(); // Replace with your actual DbContext
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
             var activeMonitors = await dbContext.UrlMonitors
                 .Where(m => m.IsActive)
                 .Include(m => m.Certificate)
                 .ToListAsync();
 
+            _logger.LogInformation($"Found {activeMonitors.Count} active monitors to check");
+
             var tasks = activeMonitors.Select(async monitor =>
             {
                 try
                 {
+                    _logger.LogInformation($"Processing monitor {monitor.Id} ({monitor.Name})");
                     var result = await CheckUrlAsync(monitor);
                     await UpdateMonitorAsync(dbContext, monitor, result);
+                    _logger.LogInformation($"Successfully updated monitor {monitor.Id}");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Failed to process monitor {monitor.Id}");
+                    _logger.LogError(ex, $"=== FAILED TO PROCESS MONITOR === {monitor.Id}: {ex.Message}");
                 }
             });
 
             await Task.WhenAll(tasks);
-            await dbContext.SaveChangesAsync();
+
+            try
+            {
+                await dbContext.SaveChangesAsync();
+                _logger.LogInformation("=== MONITORING CYCLE COMPLETED SUCCESSFULLY ===");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"=== FAILED TO SAVE CHANGES === {ex.Message}");
+                throw;
+            }
         }
 
         private async Task UpdateMonitorAsync(ApplicationDbContext dbContext, UrlMonitor monitor, UrlMonitorResult result)
         {
-            // Update monitor status
-            monitor.Status = result.Status;
-            monitor.LastResponseCode = result.StatusCode;
-            monitor.LastResponseTimeMs = result.ResponseTimeMs;
-            monitor.LastChecked = result.CheckedAt;
-            monitor.LastError = result.Error ?? string.Empty;
-            monitor.UpdatedAt = DateTime.UtcNow;
+            _logger.LogInformation($"Updating monitor {monitor.Id} with result: Success={result.Success}, Status={result.Status}");
 
-            // Update statistics
-            monitor.TotalChecks++;
-            if (result.Success)
+            try
             {
-                monitor.SuccessfulChecks++;
-                monitor.LastUptime = result.CheckedAt;
-                monitor.ConsecutiveFailures = 0;
-            }
-            else
-            {
-                monitor.LastDowntime = result.CheckedAt;
-                monitor.ConsecutiveFailures++;
-            }
+                // Update monitor status
+                monitor.Status = result.Status;
+                monitor.LastResponseCode = result.StatusCode;
+                monitor.LastResponseTimeMs = result.ResponseTimeMs;
+                monitor.LastChecked = result.CheckedAt;
+                monitor.LastError = result.Error ?? string.Empty;
+                monitor.UpdatedAt = DateTime.UtcNow;
 
-            // Calculate uptime percentage
-            monitor.UptimePercentage = monitor.TotalChecks > 0
-                ? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
-                : 0;
-            dbContext.Entry(monitor).State = EntityState.Modified;
-            // Update or create certificate record if SSL check was performed
-            if (result.CertificateResult != null && result.CertificateResult.Success)
-            {
-                var existingCert = monitor.Certificate;
-                if (existingCert == null || existingCert.Thumbprint != result.CertificateResult.Thumbprint)
+                // Update statistics
+                monitor.TotalChecks++;
+                if (result.Success)
                 {
-                    // Create new certificate record
-                    var newCert = new Certificate
-                    {
-                        CommonName = result.CertificateResult.CommonName ?? string.Empty,
-                        Thumbprint = result.CertificateResult.Thumbprint ?? string.Empty,
-                        IssuedDate = result.CertificateResult.IssuedDate,
-                        ExpiryDate = result.CertificateResult.ExpiryDate,
-                        Issuer = result.CertificateResult.Issuer ?? string.Empty,
-                        Algorithm = result.CertificateResult.Algorithm ?? string.Empty,
-                        KeySize = result.CertificateResult.KeySize,
-                        Status = result.CertificateResult.Status,
-                        LastChecked = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    dbContext.Certificates.Add(newCert);
-                    monitor.Certificate = newCert;
+                    monitor.SuccessfulChecks++;
+                    monitor.LastUptime = result.CheckedAt;
+                    monitor.ConsecutiveFailures = 0;
                 }
                 else
                 {
-                    // Update existing certificate
-                    existingCert.Status = result.CertificateResult.Status;
-                    existingCert.LastChecked = DateTime.UtcNow;
-                    existingCert.UpdatedAt = DateTime.UtcNow;
+                    monitor.LastDowntime = result.CheckedAt;
+                    monitor.ConsecutiveFailures++;
                 }
+
+                // Calculate uptime percentage
+                monitor.UptimePercentage = monitor.TotalChecks > 0
+                    ? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
+                    : 0;
+
+                // Mark entity as modified
+                dbContext.Entry(monitor).State = EntityState.Modified;
+
+                // Update or create certificate record if SSL check was performed
+                if (result.CertificateResult != null && result.CertificateResult.Success)
+                {
+                    var existingCert = monitor.Certificate;
+                    if (existingCert == null || existingCert.Thumbprint != result.CertificateResult.Thumbprint)
+                    {
+                        _logger.LogInformation($"Creating new certificate record for monitor {monitor.Id}");
+                        // Create new certificate record
+                        var newCert = new Certificate
+                        {
+                            CommonName = result.CertificateResult.CommonName ?? string.Empty,
+                            Thumbprint = result.CertificateResult.Thumbprint ?? string.Empty,
+                            IssuedDate = result.CertificateResult.IssuedDate,
+                            ExpiryDate = result.CertificateResult.ExpiryDate,
+                            Issuer = result.CertificateResult.Issuer ?? string.Empty,
+                            Algorithm = result.CertificateResult.Algorithm ?? string.Empty,
+                            KeySize = result.CertificateResult.KeySize,
+                            Status = result.CertificateResult.Status,
+                            LastChecked = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        };
+
+                        dbContext.Certificates.Add(newCert);
+                        monitor.Certificate = newCert;
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Updating existing certificate for monitor {monitor.Id}");
+                        // Update existing certificate
+                        existingCert.Status = result.CertificateResult.Status;
+                        existingCert.LastChecked = DateTime.UtcNow;
+                        existingCert.UpdatedAt = DateTime.UtcNow;
+                        dbContext.Entry(existingCert).State = EntityState.Modified;
+                    }
+                }
+
+                _logger.LogInformation($"Monitor {monitor.Id} update prepared successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating monitor {monitor.Id}: {ex.Message}");
+                throw;
             }
         }
 
@@ -325,6 +364,29 @@ namespace Beacon.Services
                     ? monitors.Average(m => m.UptimePercentage)
                     : 0
             };
+        }
+
+        // Added for debugging purposes
+        public async Task<string> TestSimpleUrlAsync(string url)
+        {
+            try
+            {
+                _logger.LogInformation($"Testing simple request to {url}");
+
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var response = await _httpClient.GetAsync(url, cts.Token);
+
+                var result = $"Status: {response.StatusCode}, Success: {response.IsSuccessStatusCode}";
+                _logger.LogInformation($"Simple test result: {result}");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                var error = $"Error: {ex.GetType().Name} - {ex.Message}";
+                _logger.LogError(ex, $"Simple test failed: {error}");
+                return error;
+            }
         }
     }
 
