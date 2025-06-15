@@ -28,10 +28,10 @@ namespace Beacon.Models
 
     public enum DeviceStatus
     {
-        Unknown,
-        Online,
-        Offline,
-        Warning,
-        Critical
+        Unknown = 0,
+        Online = 1,
+        Offline = 2,
+        Warning = 3,
+        Error = 4
     }
 }

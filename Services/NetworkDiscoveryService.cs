@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text;
 using Beacon.Data;
 using Beacon.Models;
 using Microsoft.EntityFrameworkCore;
@@ -24,21 +23,24 @@ namespace Beacon.Services
         // Common ports to check for service identification
         private readonly Dictionary<int, string> _commonPorts = new()
         {
+            { 21, "FTP" },
             { 22, "SSH" },
             { 23, "Telnet" },
             { 25, "SMTP" },
             { 53, "DNS" },
             { 80, "HTTP" },
             { 110, "POP3" },
+            { 135, "RPC" },
+            { 139, "NetBIOS" },
             { 143, "IMAP" },
             { 443, "HTTPS" },
             { 993, "IMAPS" },
             { 995, "POP3S" },
+            { 1433, "SQL Server" },
+            { 3306, "MySQL" },
             { 3389, "RDP" },
             { 5432, "PostgreSQL" },
-            { 3306, "MySQL" },
-            { 1433, "SQL Server" },
-            { 21, "FTP" },
+            { 8080, "HTTP Alt" },
             { 161, "SNMP" }
         };
 
@@ -297,6 +299,9 @@ namespace Beacon.Services
             if (portNumbers.Contains(25) || portNumbers.Contains(110) || portNumbers.Contains(143))
                 return "Mail Server";
 
+            if (portNumbers.Contains(135) || portNumbers.Contains(139))
+                return "Windows Computer";
+
             return openPorts.Any() ? "Network Device" : "Unknown Device";
         }
 
@@ -349,7 +354,7 @@ namespace Beacon.Services
                     var baseIp = IPAddress.Parse(parts[0]);
                     var prefixLength = int.Parse(parts[1]);
 
-                    // Simple /24 implementation for now
+                    // Enhanced CIDR implementation
                     if (prefixLength == 24)
                     {
                         var bytes = baseIp.GetAddressBytes();
@@ -357,6 +362,18 @@ namespace Beacon.Services
                         for (int i = 1; i <= 254; i++)
                         {
                             ipAddresses.Add($"{baseNetwork}.{i}");
+                        }
+                    }
+                    else if (prefixLength == 16)
+                    {
+                        var bytes = baseIp.GetAddressBytes();
+                        var baseNetwork = $"{bytes[0]}.{bytes[1]}";
+                        for (int j = 0; j <= 255; j++)
+                        {
+                            for (int i = 1; i <= 254; i++)
+                            {
+                                ipAddresses.Add($"{baseNetwork}.{j}.{i}");
+                            }
                         }
                     }
                 }
