@@ -150,7 +150,7 @@ namespace Beacon.Controllers
             }
         }
 
-        [HttpGet("dashboard-data")]
+		[HttpGet("dashboard-data")]
         public async Task<ActionResult<DashboardData>> GetDashboardData()
         {
             try

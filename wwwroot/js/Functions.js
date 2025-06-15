@@ -12,6 +12,21 @@ function toggleTheme() {
     const themeToggle = document.querySelector('.theme-toggle');
     themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
 }
+function showLoadingOverlay(show) {
+    let overlay = document.getElementById('loadingOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(255,255,255,0.5); z-index: 9999; display: flex;
+            align-items: center; justify-content: center; font-size: 2em; color: #333; display: none;
+        `;
+        overlay.innerHTML = '<div>Refreshing...</div>';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = show ? 'flex' : 'none';
+}
 
 function initializeTheme() {
     document.documentElement.setAttribute('data-theme', 'light');
@@ -355,31 +370,34 @@ async function addDevicesToMonitoring(ipAddresses) {
 }
 
 // URL Monitor management
-function addUrlMonitor() {
+async function addUrlMonitor() {
     const form = document.getElementById('urlMonitorForm');
     const formData = new FormData(form);
 
     const monitor = {
-        id: Date.now(),
         url: formData.get('url'),
         name: formData.get('name') || new URL(formData.get('url')).hostname,
         description: formData.get('description') || '',
-        checkInterval: parseInt(formData.get('checkInterval')),
-        timeout: parseInt(formData.get('timeout')),
-        status: 'checking',
-        responseTime: null,
-        lastCheck: new Date().toISOString(),
-        sslCert: null
+        checkIntervalMinutes: parseInt(formData.get('checkInterval')),
+        timeoutSeconds: parseInt(formData.get('timeout')),
+        isActive: true,
+        monitorSsl: true
     };
 
-    urlMonitors.push(monitor);
-    closeUrlMonitorModal();
-    loadMetrics();
-    loadUrlMonitors();
-
-    // Real URL check would go here
-    // checkUrl(monitor);
+    try {
+        const response = await fetch('/api/monitoring/monitors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(monitor)
+        });
+        if (!response.ok) throw new Error('Failed to add monitor');
+        closeUrlMonitorModal();
+        await loadDashboardData();
+    } catch (e) {
+        showNotification('Failed to add monitor: ' + e.message, 'error');
+    }
 }
+
 
 function checkAllUrls() {
     // Real implementation would check all URLs via API
@@ -439,8 +457,10 @@ function showNotification(message, type = 'info') {
 
 // API integration functions
 async function loadDashboardData() {
+    showLoadingOverlay(true); // Show overlay while loading
     try {
-        const response = await fetch('/api/urlmonitor/dashboard-data');
+        // Use the correct API endpoint (adjust if needed)
+        const response = await fetch('/api/monitoring/dashboard-data');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -459,10 +479,13 @@ async function loadDashboardData() {
         return dashboardData;
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        // Show error state
+        // Show error state, but do not clear previous data
         showErrorState();
+    } finally {
+        showLoadingOverlay(false); // Hide overlay after loading
     }
 }
+
 
 function updateMetricsFromAPI(dashboardData) {
     const stats = dashboardData.Stats || {};
@@ -541,6 +564,29 @@ function renderCertificateInfo(monitor) {
     }
 
     return certInfo;
+}
+let firstLoad = true;
+
+function updateMetricsFromAPI(dashboardData) {
+    const stats = dashboardData.Stats || {};
+
+    // Update URL metrics from API
+    const urlsUp = stats.UpMonitors || 0;
+    const urlsDown = stats.DownMonitors || 0;
+
+    // Certificate metrics from API
+    const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
+    const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
+        m.Certificate && m.Certificate.DaysUntilExpiry <= 0
+    ).length : 0;
+
+    // Update metric cards
+    document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
+    document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
+    document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
+    document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+
+    firstLoad = false;
 }
 
 // Data loading functions
@@ -796,20 +842,24 @@ async function loadAllCertificates() {
 }
 
         // Initialize the application
-        function initialize() {
-            initializeTheme();
-            loadMetrics();
-            loadRecentDevices();
-            loadUrlMonitors();
+function initialize() {
+    initializeTheme();
+    loadMetrics();
+    loadRecentDevices();
+    loadUrlMonitors();
 
-            // Try to load real data from API
-            loadDashboardData();
+    // Show overlay on first load
+    showLoadingOverlay(true);
 
-            // Set up auto-refresh for real data
-            setInterval(() => {
-                loadDashboardData();
-            }, 30000); // Refresh every 30 seconds
-        }
+    // Try to load real data from API
+    loadDashboardData().finally(() => {
+        showLoadingOverlay(false);
+    });
 
-        // Start the application when page loads
-        document.addEventListener('DOMContentLoaded', initialize);
+    // Set up auto-refresh for real data
+    setInterval(() => {
+        loadDashboardData();
+    }, 30000); // Refresh every 30 seconds
+}
+
+document.addEventListener('DOMContentLoaded', initialize);
