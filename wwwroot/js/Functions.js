@@ -12,7 +12,7 @@ function toggleTheme() {
     const themeToggle = document.querySelector('.theme-toggle');
     themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
 }
-
+//defaults to light mode TODO: Save initial theme to account setting
 function initializeTheme() {
     document.documentElement.setAttribute('data-theme', 'light');
 }
@@ -780,6 +780,45 @@ async function loadExpiringCertificates(days = 30) {
     }
 }
 
+// Load devices from the backend API and refresh metrics/display
+async function loadDevicesFromAPI() {
+    try {
+        const response = await fetch('/devices/api/devices');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Map API devices to local format expected by the UI
+        devices = data.map(d => ({
+            id: d.id,
+            ipAddress: d.ipAddress,
+            hostname: d.hostname,
+            deviceType: d.deviceType || '',
+            description: d.description || '',
+            status: mapDeviceStatus(d.status),
+            lastSeen: d.lastSeen,
+            responseTime: null
+        }));
+
+        loadMetrics();
+        loadRecentDevices();
+    } catch (error) {
+        console.error('Error loading devices:', error);
+    }
+}
+
+// Helper to convert enum values returned by the API to status strings
+function mapDeviceStatus(status) {
+    switch (status) {
+        case 1: return 'online';
+        case 2: return 'offline';
+        case 3: return 'warning';
+        case 4: return 'error';
+        default: return 'unknown';
+    }
+}
 async function loadAllCertificates() {
     try {
         const response = await fetch('/api/urlmonitor/certificates');
@@ -810,6 +849,559 @@ async function loadAllCertificates() {
                 loadDashboardData();
             }, 30000); // Refresh every 30 seconds
         }
+// 1. DEVICE MANAGEMENT FUNCTIONS
+// ============================================================================
 
+// Edit existing device
+function editDevice(deviceId) {
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return;
+
+    // Populate edit form with existing data
+    document.getElementById('editDeviceId').value = device.id;
+    document.getElementById('editIpAddress').value = device.ipAddress;
+    document.getElementById('editHostname').value = device.hostname;
+    document.getElementById('editDeviceType').value = device.deviceType;
+    document.getElementById('editDescription').value = device.description;
+    document.getElementById('editMonitoringEnabled').checked = device.monitoringEnabled;
+
+    document.getElementById('editDeviceModal').style.display = 'block';
+}
+
+// Update existing device
+async function updateDevice() {
+    const form = document.getElementById('editDeviceForm');
+    const formData = new FormData(form);
+    const deviceId = parseInt(formData.get('deviceId'));
+
+    try {
+        const response = await fetch(`/api/devices/${deviceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ipAddress: formData.get('ipAddress'),
+                hostname: formData.get('hostname'),
+                deviceType: formData.get('deviceType'),
+                description: formData.get('description'),
+                monitoringEnabled: formData.get('monitoringEnabled') === 'on'
+            })
+        });
+
+        if (response.ok) {
+            showNotification('Device updated successfully', 'success');
+            closeEditDeviceModal();
+            loadDevicesFromAPI();
+        } else {
+            throw new Error('Failed to update device');
+        }
+    } catch (error) {
+        showNotification('Error updating device: ' + error.message, 'error');
+    }
+}
+
+// Delete device
+async function deleteDevice(deviceId) {
+    if (!confirm('Are you sure you want to delete this device?')) return;
+
+    try {
+        const response = await fetch(`/api/devices/${deviceId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showNotification('Device deleted successfully', 'success');
+            loadDevicesFromAPI();
+        } else {
+            throw new Error('Failed to delete device');
+        }
+    } catch (error) {
+        showNotification('Error deleting device: ' + error.message, 'error');
+    }
+}
+
+// Manually ping a specific device
+async function pingDevice(deviceId) {
+    try {
+        showNotification('Pinging device...', 'info');
+
+        const response = await fetch(`/api/devices/${deviceId}/ping`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(`Device ${result.isOnline ? 'is online' : 'is offline'} (${result.responseTime}ms)`,
+                result.isOnline ? 'success' : 'warning');
+            loadDevicesFromAPI();
+        } else {
+            throw new Error(result.error || 'Ping failed');
+        }
+    } catch (error) {
+        showNotification('Error pinging device: ' + error.message, 'error');
+    }
+}
+
+// Ping all devices
+async function pingAllDevices() {
+    try {
+        showNotification('Pinging all devices...', 'info');
+
+        const response = await fetch('/api/devices/ping-all', {
+            method: 'POST'
+        });
+
+        if (response.ok) {
+            showNotification('All devices pinged successfully', 'success');
+            loadDevicesFromAPI();
+        } else {
+            throw new Error('Failed to ping all devices');
+        }
+    } catch (error) {
+        showNotification('Error pinging devices: ' + error.message, 'error');
+    }
+}
+
+// 2. URL MONITOR MANAGEMENT FUNCTIONS
+// ============================================================================
+
+// Edit URL monitor
+function editUrlMonitor(monitorId) {
+    const monitor = urlMonitors.find(m => m.id === monitorId);
+    if (!monitor) return;
+
+    document.getElementById('editMonitorId').value = monitor.id;
+    document.getElementById('editUrl').value = monitor.url;
+    document.getElementById('editMonitorName').value = monitor.name;
+    document.getElementById('editMonitorDescription').value = monitor.description;
+    document.getElementById('editCheckInterval').value = monitor.checkInterval;
+    document.getElementById('editTimeout').value = monitor.timeout;
+
+    document.getElementById('editUrlMonitorModal').style.display = 'block';
+}
+
+// Update URL monitor
+async function updateUrlMonitor() {
+    const form = document.getElementById('editUrlMonitorForm');
+    const formData = new FormData(form);
+    const monitorId = parseInt(formData.get('monitorId'));
+
+    try {
+        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: formData.get('url'),
+                name: formData.get('name'),
+                description: formData.get('description'),
+                checkInterval: parseInt(formData.get('checkInterval')),
+                timeout: parseInt(formData.get('timeout'))
+            })
+        });
+
+        if (response.ok) {
+            showNotification('URL monitor updated successfully', 'success');
+            closeEditUrlMonitorModal();
+            loadDashboardData();
+        } else {
+            throw new Error('Failed to update URL monitor');
+        }
+    } catch (error) {
+        showNotification('Error updating URL monitor: ' + error.message, 'error');
+    }
+}
+
+// Delete URL monitor
+async function deleteUrlMonitor(monitorId) {
+    if (!confirm('Are you sure you want to delete this URL monitor?')) return;
+
+    try {
+        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            showNotification('URL monitor deleted successfully', 'success');
+            loadDashboardData();
+        } else {
+            throw new Error('Failed to delete URL monitor');
+        }
+    } catch (error) {
+        showNotification('Error deleting URL monitor: ' + error.message, 'error');
+    }
+}
+
+// Check specific URL monitor
+async function checkUrlMonitor(monitorId) {
+    try {
+        showNotification('Checking URL...', 'info');
+
+        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}/check`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(`URL check complete: ${result.status} (${result.responseTime}ms)`,
+                result.status === 'up' ? 'success' : 'warning');
+            loadDashboardData();
+        } else {
+            throw new Error(result.error || 'URL check failed');
+        }
+    } catch (error) {
+        showNotification('Error checking URL: ' + error.message, 'error');
+    }
+}
+
+// 3. MODAL MANAGEMENT FUNCTIONS
+// ============================================================================
+
+function closeEditDeviceModal() {
+    document.getElementById('editDeviceModal').style.display = 'none';
+    document.getElementById('editDeviceForm').reset();
+}
+
+function closeEditUrlMonitorModal() {
+    document.getElementById('editUrlMonitorModal').style.display = 'none';
+    document.getElementById('editUrlMonitorForm').reset();
+}
+
+function showSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'block';
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+function showCertificateModal() {
+    document.getElementById('certificateModal').style.display = 'block';
+    loadCertificatesList();
+}
+
+function closeCertificateModal() {
+    document.getElementById('certificateModal').style.display = 'none';
+}
+
+// 4. SETTINGS MANAGEMENT
+// ============================================================================
+
+async function saveSettings() {
+    const form = document.getElementById('settingsForm');
+    const formData = new FormData(form);
+
+    const settings = {
+        refreshInterval: parseInt(formData.get('refreshInterval')),
+        defaultTimeout: parseInt(formData.get('defaultTimeout')),
+        alertsEnabled: formData.get('alertsEnabled') === 'on',
+        emailNotifications: formData.get('emailNotifications') === 'on',
+        theme: formData.get('theme')
+    };
+
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        if (response.ok) {
+            showNotification('Settings saved successfully', 'success');
+            closeSettingsModal();
+            applySettings(settings);
+        } else {
+            throw new Error('Failed to save settings');
+        }
+    } catch (error) {
+        showNotification('Error saving settings: ' + error.message, 'error');
+    }
+}
+
+function applySettings(settings) {
+    // Apply theme
+    if (settings.theme) {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        const themeToggle = document.querySelector('.theme-toggle');
+        themeToggle.textContent = settings.theme === 'dark' ? '☀️' : '🌙';
+    }
+
+    // Update refresh interval
+    if (settings.refreshInterval && settings.refreshInterval !== 30) {
+        clearInterval(window.refreshInterval);
+        window.refreshInterval = setInterval(() => {
+            loadDashboardData();
+        }, settings.refreshInterval * 1000);
+    }
+}
+
+// 5. CERTIFICATE MANAGEMENT
+// ============================================================================
+
+async function loadCertificatesList() {
+    try {
+        const certificates = await loadAllCertificates();
+        displayCertificatesList(certificates);
+    } catch (error) {
+        showNotification('Error loading certificates: ' + error.message, 'error');
+    }
+}
+
+function displayCertificatesList(certificates) {
+    const container = document.getElementById('certificatesList');
+
+    if (certificates.length === 0) {
+        container.innerHTML = '<p>No SSL certificates found.</p>';
+        return;
+    }
+
+    container.innerHTML = certificates.map(cert => {
+        const daysUntilExpiry = Math.ceil((new Date(cert.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
+        const statusClass = daysUntilExpiry <= 0 ? 'expired' :
+            daysUntilExpiry <= 30 ? 'expiring' : 'valid';
+
+        return `
+            <div class="certificate-item ${statusClass}">
+                <div class="cert-info">
+                    <strong>${cert.subject}</strong>
+                    <div>Domain: ${cert.domain}</div>
+                    <div>Issuer: ${cert.issuer}</div>
+                    <div>Expires: ${new Date(cert.expiryDate).toLocaleDateString()}</div>
+                </div>
+                <div class="cert-status">
+                    <span class="days-remaining">${daysUntilExpiry <= 0 ? 'Expired' : `${daysUntilExpiry} days`}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 6. EXPORT/IMPORT FUNCTIONS
+// ============================================================================
+
+async function exportData() {
+    try {
+        const response = await fetch('/api/export');
+        const data = await response.json();
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `monitoring-data-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showNotification('Data exported successfully', 'success');
+    } catch (error) {
+        showNotification('Error exporting data: ' + error.message, 'error');
+    }
+}
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            const response = await fetch('/api/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                showNotification('Data imported successfully', 'success');
+                loadDashboardData();
+                loadDevicesFromAPI();
+            } else {
+                throw new Error('Failed to import data');
+            }
+        } catch (error) {
+            showNotification('Error importing data: ' + error.message, 'error');
+        }
+    };
+
+    input.click();
+}
+
+// 7. SEARCH AND FILTER FUNCTIONS
+// ============================================================================
+
+function filterDevices(searchTerm) {
+    const filteredDevices = devices.filter(device =>
+        device.hostname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.ipAddress.includes(searchTerm) ||
+        device.deviceType.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    displayFilteredDevices(filteredDevices);
+}
+
+function filterUrlMonitors(searchTerm) {
+    const filteredMonitors = urlMonitors.filter(monitor =>
+        monitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        monitor.url.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    displayFilteredUrlMonitors(filteredMonitors);
+}
+
+function displayFilteredDevices(filteredDevices) {
+    const container = document.getElementById('deviceListContainer');
+    // Use same display logic as loadRecentDevices but with filtered data
+    // Implementation similar to loadRecentDevices()
+}
+
+function displayFilteredUrlMonitors(filteredMonitors) {
+    const container = document.getElementById('urlMonitorContainer');
+    // Use same display logic as loadUrlMonitors but with filtered data
+    // Implementation similar to loadUrlMonitors()
+}
+
+// 8. BULK OPERATIONS
+// ============================================================================
+
+function selectAllDevices(checked) {
+    const checkboxes = document.querySelectorAll('.device-checkbox');
+    checkboxes.forEach(cb => cb.checked = checked);
+}
+
+async function bulkDeleteDevices() {
+    const checkedBoxes = document.querySelectorAll('.device-checkbox:checked');
+    const deviceIds = Array.from(checkedBoxes).map(cb => cb.dataset.deviceId);
+
+    if (deviceIds.length === 0) {
+        showNotification('No devices selected', 'warning');
+        return;
+    }
+
+    if (!confirm(`Delete ${deviceIds.length} selected devices?`)) return;
+
+    try {
+        const response = await fetch('/api/devices/bulk-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceIds })
+        });
+
+        if (response.ok) {
+            showNotification(`${deviceIds.length} devices deleted successfully`, 'success');
+            loadDevicesFromAPI();
+        } else {
+            throw new Error('Failed to delete devices');
+        }
+    } catch (error) {
+        showNotification('Error deleting devices: ' + error.message, 'error');
+    }
+}
+
+// 9. REAL-TIME UPDATES (WebSocket)
+// ============================================================================
+
+function initializeWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleRealTimeUpdate(data);
+    };
+
+    ws.onclose = () => {
+        // Reconnect after 5 seconds
+        setTimeout(initializeWebSocket, 5000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function handleRealTimeUpdate(data) {
+    switch (data.type) {
+        case 'device_status':
+            updateDeviceStatus(data.deviceId, data.status, data.responseTime);
+            break;
+        case 'url_status':
+            updateUrlMonitorStatus(data.monitorId, data.status, data.responseTime);
+            break;
+        case 'alert':
+            showNotification(data.message, data.level);
+            break;
+    }
+}
+
+function updateDeviceStatus(deviceId, status, responseTime) {
+    const device = devices.find(d => d.id === deviceId);
+    if (device) {
+        device.status = status;
+        device.responseTime = responseTime;
+        device.lastSeen = new Date().toISOString();
+        loadMetrics();
+        loadRecentDevices();
+    }
+}
+
+function updateUrlMonitorStatus(monitorId, status, responseTime) {
+    const monitor = urlMonitors.find(m => m.id === monitorId);
+    if (monitor) {
+        monitor.status = status;
+        monitor.responseTime = responseTime;
+        monitor.lastCheck = new Date().toISOString();
+        loadMetrics();
+        loadUrlMonitors();
+    }
+}
+
+// 10. UTILITY FUNCTIONS
+// ============================================================================
+
+function formatUptime(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function isValidIP(ip) {
+    const regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return regex.test(ip);
+}
+
+function isValidUrl(url) {
+    try {
+        new URL(url);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Initialize WebSocket connection when app starts
+document.addEventListener('DOMContentLoaded', () => {
+    initialize();
+    initializeWebSocket();
+});
         // Start the application when page loads
         document.addEventListener('DOMContentLoaded', initialize);
