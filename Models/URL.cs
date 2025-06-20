@@ -53,6 +53,7 @@ namespace Beacon.Models
     // Computed properties
     public bool IsUp => Status == UrlStatus.Up;
     public bool IsHttps => Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
     public TimeSpan? Uptime => LastUptime.HasValue && LastDowntime.HasValue
         ? (LastUptime > LastDowntime ? DateTime.UtcNow - LastUptime : null)
         : null;

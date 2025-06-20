@@ -39,6 +39,7 @@ namespace Beacon.Services
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Beacon-Monitor/1.0");
         }
 
+
         public async Task<UrlMonitorResult> CheckUrlAsync(UrlMonitor urlMonitor)
         {
             _logger.LogInformation($"=== STARTING URL CHECK === Monitor ID: {urlMonitor.Id}, URL: {urlMonitor.Url}");
@@ -203,12 +204,19 @@ namespace Beacon.Services
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var activeMonitors = await dbContext.UrlMonitors
-                .Where(m => m.IsActive)
-                .Include(m => m.Certificate)
-                .ToListAsync();
+			var now = DateTime.UtcNow;
+			var activeMonitors = await dbContext.UrlMonitors
+				.Where(m => m.IsActive)
+				.Include(m => m.Certificate)
+				.ToListAsync();
 
-            _logger.LogInformation($"Found {activeMonitors.Count} active monitors to check");
+			var dueMonitors = activeMonitors
+				.Where(m => !m.LastChecked.HasValue ||
+							(now - m.LastChecked.Value).TotalMinutes >= m.CheckIntervalMinutes)
+				.ToList();
+
+
+			_logger.LogInformation($"Found {activeMonitors.Count} active monitors to check");
 
             var tasks = activeMonitors.Select(async monitor =>
             {

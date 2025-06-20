@@ -12,7 +12,22 @@ function toggleTheme() {
     const themeToggle = document.querySelector('.theme-toggle');
     themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
 }
-//defaults to light mode TODO: Save initial theme to account setting
+function showLoadingOverlay(show) {
+    let overlay = document.getElementById('loadingOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(255,255,255,0.5); z-index: 9999; display: flex;
+            align-items: center; justify-content: center; font-size: 2em; color: #333; display: none;
+        `;
+        overlay.innerHTML = '<div>Refreshing...</div>';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = show ? 'flex' : 'none';
+}
+
 function initializeTheme() {
     document.documentElement.setAttribute('data-theme', 'light');
 }
@@ -355,31 +370,34 @@ async function addDevicesToMonitoring(ipAddresses) {
 }
 
 // URL Monitor management
-function addUrlMonitor() {
+async function addUrlMonitor() {
     const form = document.getElementById('urlMonitorForm');
     const formData = new FormData(form);
 
     const monitor = {
-        id: Date.now(),
         url: formData.get('url'),
         name: formData.get('name') || new URL(formData.get('url')).hostname,
         description: formData.get('description') || '',
-        checkInterval: parseInt(formData.get('checkInterval')),
-        timeout: parseInt(formData.get('timeout')),
-        status: 'checking',
-        responseTime: null,
-        lastCheck: new Date().toISOString(),
-        sslCert: null
+        checkIntervalMinutes: parseInt(formData.get('checkInterval')),
+        timeoutSeconds: parseInt(formData.get('timeout')),
+        isActive: true,
+        monitorSsl: true
     };
 
-    urlMonitors.push(monitor);
-    closeUrlMonitorModal();
-    loadMetrics();
-    loadUrlMonitors();
-
-    // Real URL check would go here
-    // checkUrl(monitor);
+    try {
+        const response = await fetch('/api/monitoring/monitors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(monitor)
+        });
+        if (!response.ok) throw new Error('Failed to add monitor');
+        closeUrlMonitorModal();
+        await loadDashboardData();
+    } catch (e) {
+        showNotification('Failed to add monitor: ' + e.message, 'error');
+    }
 }
+
 
 function checkAllUrls() {
     // Real implementation would check all URLs via API
@@ -439,8 +457,10 @@ function showNotification(message, type = 'info') {
 
 // API integration functions
 async function loadDashboardData() {
+    showLoadingOverlay(true); // Show overlay while loading
     try {
-        const response = await fetch('/api/urlmonitor/dashboard-data');
+        // Use the correct API endpoint (adjust if needed)
+        const response = await fetch('/api/monitoring/dashboard-data');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -459,10 +479,13 @@ async function loadDashboardData() {
         return dashboardData;
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        // Show error state
+        // Show error state, but do not clear previous data
         showErrorState();
+    } finally {
+        showLoadingOverlay(false); // Hide overlay after loading
     }
 }
+
 
 function updateMetricsFromAPI(dashboardData) {
     const stats = dashboardData.Stats || {};
@@ -541,6 +564,29 @@ function renderCertificateInfo(monitor) {
     }
 
     return certInfo;
+}
+let firstLoad = true;
+
+function updateMetricsFromAPI(dashboardData) {
+    const stats = dashboardData.Stats || {};
+
+    // Update URL metrics from API
+    const urlsUp = stats.UpMonitors || 0;
+    const urlsDown = stats.DownMonitors || 0;
+
+    // Certificate metrics from API
+    const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
+    const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
+        m.Certificate && m.Certificate.DaysUntilExpiry <= 0
+    ).length : 0;
+
+    // Update metric cards
+    document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
+    document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
+    document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
+    document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+
+    firstLoad = false;
 }
 
 // Data loading functions
@@ -835,304 +881,24 @@ async function loadAllCertificates() {
 }
 
         // Initialize the application
-        function initialize() {
-            initializeTheme();
-            loadMetrics();
-            loadRecentDevices();
-            loadUrlMonitors();
+function initialize() {
+    initializeTheme();
+    loadMetrics();
+    loadRecentDevices();
+    loadUrlMonitors();
 
-            // Try to load real data from API
-            loadDashboardData();
+    // Show overlay on first load
+    showLoadingOverlay(true);
 
-            // Set up auto-refresh for real data
-            setInterval(() => {
-                loadDashboardData();
-            }, 30000); // Refresh every 30 seconds
-        }
-// 1. DEVICE MANAGEMENT FUNCTIONS
-// ============================================================================
+    // Try to load real data from API
+    loadDashboardData().finally(() => {
+        showLoadingOverlay(false);
+    });
 
-// Edit existing device
-function editDevice(deviceId) {
-    const device = devices.find(d => d.id === deviceId);
-    if (!device) return;
-
-    // Populate edit form with existing data
-    document.getElementById('editDeviceId').value = device.id;
-    document.getElementById('editIpAddress').value = device.ipAddress;
-    document.getElementById('editHostname').value = device.hostname;
-    document.getElementById('editDeviceType').value = device.deviceType;
-    document.getElementById('editDescription').value = device.description;
-    document.getElementById('editMonitoringEnabled').checked = device.monitoringEnabled;
-
-    document.getElementById('editDeviceModal').style.display = 'block';
-}
-
-// Update existing device
-async function updateDevice() {
-    const form = document.getElementById('editDeviceForm');
-    const formData = new FormData(form);
-    const deviceId = parseInt(formData.get('deviceId'));
-
-    try {
-        const response = await fetch(`/api/devices/${deviceId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ipAddress: formData.get('ipAddress'),
-                hostname: formData.get('hostname'),
-                deviceType: formData.get('deviceType'),
-                description: formData.get('description'),
-                monitoringEnabled: formData.get('monitoringEnabled') === 'on'
-            })
-        });
-
-        if (response.ok) {
-            showNotification('Device updated successfully', 'success');
-            closeEditDeviceModal();
-            loadDevicesFromAPI();
-        } else {
-            throw new Error('Failed to update device');
-        }
-    } catch (error) {
-        showNotification('Error updating device: ' + error.message, 'error');
-    }
-}
-
-// Delete device
-async function deleteDevice(deviceId) {
-    if (!confirm('Are you sure you want to delete this device?')) return;
-
-    try {
-        const response = await fetch(`/api/devices/${deviceId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            showNotification('Device deleted successfully', 'success');
-            loadDevicesFromAPI();
-        } else {
-            throw new Error('Failed to delete device');
-        }
-    } catch (error) {
-        showNotification('Error deleting device: ' + error.message, 'error');
-    }
-}
-
-// Manually ping a specific device
-async function pingDevice(deviceId) {
-    try {
-        showNotification('Pinging device...', 'info');
-
-        const response = await fetch(`/api/devices/${deviceId}/ping`, {
-            method: 'POST'
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showNotification(`Device ${result.isOnline ? 'is online' : 'is offline'} (${result.responseTime}ms)`,
-                result.isOnline ? 'success' : 'warning');
-            loadDevicesFromAPI();
-        } else {
-            throw new Error(result.error || 'Ping failed');
-        }
-    } catch (error) {
-        showNotification('Error pinging device: ' + error.message, 'error');
-    }
-}
-
-// Ping all devices
-async function pingAllDevices() {
-    try {
-        showNotification('Pinging all devices...', 'info');
-
-        const response = await fetch('/api/devices/ping-all', {
-            method: 'POST'
-        });
-
-        if (response.ok) {
-            showNotification('All devices pinged successfully', 'success');
-            loadDevicesFromAPI();
-        } else {
-            throw new Error('Failed to ping all devices');
-        }
-    } catch (error) {
-        showNotification('Error pinging devices: ' + error.message, 'error');
-    }
-}
-
-// 2. URL MONITOR MANAGEMENT FUNCTIONS
-// ============================================================================
-
-// Edit URL monitor
-function editUrlMonitor(monitorId) {
-    const monitor = urlMonitors.find(m => m.id === monitorId);
-    if (!monitor) return;
-
-    document.getElementById('editMonitorId').value = monitor.id;
-    document.getElementById('editUrl').value = monitor.url;
-    document.getElementById('editMonitorName').value = monitor.name;
-    document.getElementById('editMonitorDescription').value = monitor.description;
-    document.getElementById('editCheckInterval').value = monitor.checkInterval;
-    document.getElementById('editTimeout').value = monitor.timeout;
-
-    document.getElementById('editUrlMonitorModal').style.display = 'block';
-}
-
-// Update URL monitor
-async function updateUrlMonitor() {
-    const form = document.getElementById('editUrlMonitorForm');
-    const formData = new FormData(form);
-    const monitorId = parseInt(formData.get('monitorId'));
-
-    try {
-        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                url: formData.get('url'),
-                name: formData.get('name'),
-                description: formData.get('description'),
-                checkInterval: parseInt(formData.get('checkInterval')),
-                timeout: parseInt(formData.get('timeout'))
-            })
-        });
-
-        if (response.ok) {
-            showNotification('URL monitor updated successfully', 'success');
-            closeEditUrlMonitorModal();
-            loadDashboardData();
-        } else {
-            throw new Error('Failed to update URL monitor');
-        }
-    } catch (error) {
-        showNotification('Error updating URL monitor: ' + error.message, 'error');
-    }
-}
-
-// Delete URL monitor
-async function deleteUrlMonitor(monitorId) {
-    if (!confirm('Are you sure you want to delete this URL monitor?')) return;
-
-    try {
-        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            showNotification('URL monitor deleted successfully', 'success');
-            loadDashboardData();
-        } else {
-            throw new Error('Failed to delete URL monitor');
-        }
-    } catch (error) {
-        showNotification('Error deleting URL monitor: ' + error.message, 'error');
-    }
-}
-
-// Check specific URL monitor
-async function checkUrlMonitor(monitorId) {
-    try {
-        showNotification('Checking URL...', 'info');
-
-        const response = await fetch(`/api/urlmonitor/monitors/${monitorId}/check`, {
-            method: 'POST'
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            showNotification(`URL check complete: ${result.status} (${result.responseTime}ms)`,
-                result.status === 'up' ? 'success' : 'warning');
-            loadDashboardData();
-        } else {
-            throw new Error(result.error || 'URL check failed');
-        }
-    } catch (error) {
-        showNotification('Error checking URL: ' + error.message, 'error');
-    }
-}
-
-// 3. MODAL MANAGEMENT FUNCTIONS
-// ============================================================================
-
-function closeEditDeviceModal() {
-    document.getElementById('editDeviceModal').style.display = 'none';
-    document.getElementById('editDeviceForm').reset();
-}
-
-function closeEditUrlMonitorModal() {
-    document.getElementById('editUrlMonitorModal').style.display = 'none';
-    document.getElementById('editUrlMonitorForm').reset();
-}
-
-function showSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'block';
-}
-
-function closeSettingsModal() {
-    document.getElementById('settingsModal').style.display = 'none';
-}
-
-function showCertificateModal() {
-    document.getElementById('certificateModal').style.display = 'block';
-    loadCertificatesList();
-}
-
-function closeCertificateModal() {
-    document.getElementById('certificateModal').style.display = 'none';
-}
-
-// 4. SETTINGS MANAGEMENT
-// ============================================================================
-
-async function saveSettings() {
-    const form = document.getElementById('settingsForm');
-    const formData = new FormData(form);
-
-    const settings = {
-        refreshInterval: parseInt(formData.get('refreshInterval')),
-        defaultTimeout: parseInt(formData.get('defaultTimeout')),
-        alertsEnabled: formData.get('alertsEnabled') === 'on',
-        emailNotifications: formData.get('emailNotifications') === 'on',
-        theme: formData.get('theme')
-    };
-
-    try {
-        const response = await fetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settings)
-        });
-
-        if (response.ok) {
-            showNotification('Settings saved successfully', 'success');
-            closeSettingsModal();
-            applySettings(settings);
-        } else {
-            throw new Error('Failed to save settings');
-        }
-    } catch (error) {
-        showNotification('Error saving settings: ' + error.message, 'error');
-    }
-}
-
-function applySettings(settings) {
-    // Apply theme
-    if (settings.theme) {
-        document.documentElement.setAttribute('data-theme', settings.theme);
-        const themeToggle = document.querySelector('.theme-toggle');
-        themeToggle.textContent = settings.theme === 'dark' ? '☀️' : '🌙';
-    }
-
-    // Update refresh interval
-    if (settings.refreshInterval && settings.refreshInterval !== 30) {
-        clearInterval(window.refreshInterval);
-        window.refreshInterval = setInterval(() => {
-            loadDashboardData();
-        }, settings.refreshInterval * 1000);
-    }
+    // Set up auto-refresh for real data
+    setInterval(() => {
+        loadDashboardData();
+    }, 30000); // Refresh every 30 seconds
 }
 
 // 5. CERTIFICATE MANAGEMENT
