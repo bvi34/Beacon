@@ -42,6 +42,7 @@ builder.Services.AddServerSideBlazor();
 
 // BUILD THE APP - Do this AFTER all service registrations
 var app = builder.Build();
+app.UseStaticFiles(); // Add this if it's not present
 
 // Ensure database is created and seed data
 using (var scope = app.Services.CreateScope())

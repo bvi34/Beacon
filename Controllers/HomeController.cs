@@ -1,14 +1,28 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Beacon.Data;
+using Beacon.Models;
 
 namespace Beacon.Controllers
 {
     public class HomeController : Controller
     {
-        public IActionResult Index()
+		private readonly ApplicationDbContext _context;
+        public HomeController(ApplicationDbContext context)
         {
-            return View();
-        }
-        public IActionResult Discovery()
+			_context = context;
+		}
+		public async Task<IActionResult> Index()
+		{
+			var devices = await _context.Devices
+				.Include(d => d.MonitoredPorts)
+				.Include(d => d.Certificates)
+				.ToListAsync();
+
+			return View(devices);
+		}
+
+		public IActionResult Discovery()
         {
             return View();
         }
@@ -22,5 +36,6 @@ namespace Beacon.Controllers
         {
             return View();
         }
+
     }
 }

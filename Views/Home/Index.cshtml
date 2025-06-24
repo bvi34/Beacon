@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@model List<Beacon.Models.Device>
+<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <html lang="en">
@@ -6,8 +7,8 @@
  
     <title>Beacon Monitoring System</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <link rel="stylesheet" href="~/css/Style.css">
-    <script src="~/js/Functions.js"></script>
+    <link rel="stylesheet" href="/css/Style.css">
+    <script type="module" src="/js/main.js"></script>
 </head>
 <body>
     <div class="container">
@@ -72,11 +73,26 @@
         </section>
 
         <section class="device-list">
-            <h3 class="chart-title">Recent Device Activity</h3>
-            <div id="deviceListContainer" class="device-list-container">
-                <p style="text-align: center; color: var(--text-muted);">Loading...</p>
-            </div>
+            <h3 class="chart-title">Device List</h3>
+            @if (Model.Any())
+            {
+                foreach (var device in Model)
+                {
+                    <div class="device-item">
+                        <strong>@device.Hostname</strong> (@device.IpAddress)<br />
+                        Status: @device.Status<br />
+                        Ports: @device.MonitoredPorts?.Count ?? 0<br />
+                        Certificates: @device.Certificates?.Count ?? 0
+                        <hr />
+                    </div>
+                }
+            }
+            else
+            {
+                <p>No devices found.</p>
+            }
         </section>
+
 
         <section class="device-list">
             <h3 class="chart-title">URL Monitoring Status</h3>

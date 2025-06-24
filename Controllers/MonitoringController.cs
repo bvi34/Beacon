@@ -180,4 +180,11 @@ namespace Beacon.Controllers
             }
         }
     }
+	public class DashboardData
+	{
+		public MonitoringStats Stats { get; set; } = new();
+		public List<UrlMonitor> Monitors { get; set; } = new();
+		public List<Certificate> ExpiringCertificates { get; set; } = new();
+		public DateTime LastUpdated { get; set; }
+	}
 }

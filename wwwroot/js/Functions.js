@@ -645,6 +645,7 @@ function loadRecentDevices() {
                         <strong>${statusIcon} ${device.hostname}</strong>
                         <div class="ip">${device.ipAddress} • ${device.deviceType} • Last seen: ${lastSeen}</div>
                     </div>
+                    </div>
                     <div style="text-align: right;">
                         ${device.responseTime ? `${device.responseTime}ms` : '—'}
                     </div>

@@ -196,8 +196,38 @@ namespace Beacon.Services
             }
             return true; // Accept for monitoring, but log issues
         }
+		private async Task<Certificate> UpsertCertificateAsync(ApplicationDbContext dbContext, CertificateResult certResult)
+		{
+			// Try to find an existing cert by thumbprint
+			var existing = await dbContext.Certificates.FirstOrDefaultAsync(c => c.Thumbprint == certResult.Thumbprint);
 
-        public async Task RunMonitoringCycleAsync()
+			if (existing != null)
+			{
+				existing.Status = certResult.Status;
+				existing.LastChecked = DateTime.UtcNow;
+				existing.UpdatedAt = DateTime.UtcNow;
+				dbContext.Entry(existing).State = EntityState.Modified;
+				return existing;
+			}
+
+			var newCert = new Certificate
+			{
+				CommonName = certResult.CommonName ?? string.Empty,
+				Thumbprint = certResult.Thumbprint ?? string.Empty,
+				IssuedDate = certResult.IssuedDate,
+				ExpiryDate = certResult.ExpiryDate,
+				Issuer = certResult.Issuer ?? string.Empty,
+				Algorithm = certResult.Algorithm ?? string.Empty,
+				KeySize = certResult.KeySize,
+				Status = certResult.Status,
+				LastChecked = DateTime.UtcNow,
+				UpdatedAt = DateTime.UtcNow
+			};
+
+			dbContext.Certificates.Add(newCert);
+			return newCert;
+		}
+		public async Task RunMonitoringCycleAsync()
         {
             _logger.LogInformation("=== STARTING MONITORING CYCLE ===");
 
@@ -247,88 +277,53 @@ namespace Beacon.Services
             }
         }
 
-        private async Task UpdateMonitorAsync(ApplicationDbContext dbContext, UrlMonitor monitor, UrlMonitorResult result)
-        {
-            _logger.LogInformation($"Updating monitor {monitor.Id} with result: Success={result.Success}, Status={result.Status}");
+		private async Task UpdateMonitorAsync(ApplicationDbContext dbContext, UrlMonitor monitor, UrlMonitorResult result)
+		{
+			_logger.LogInformation($"Updating monitor {monitor.Id} with result: Success={result.Success}, Status={result.Status}");
 
-            try
-            {
-                // Update monitor status
-                monitor.Status = result.Status;
-                monitor.LastResponseCode = result.StatusCode;
-                monitor.LastResponseTimeMs = result.ResponseTimeMs;
-                monitor.LastChecked = result.CheckedAt;
-                monitor.LastError = result.Error ?? string.Empty;
-                monitor.UpdatedAt = DateTime.UtcNow;
+			try
+			{
+				monitor.Status = result.Status;
+				monitor.LastResponseCode = result.StatusCode;
+				monitor.LastResponseTimeMs = result.ResponseTimeMs;
+				monitor.LastChecked = result.CheckedAt;
+				monitor.LastError = result.Error ?? string.Empty;
+				monitor.UpdatedAt = DateTime.UtcNow;
 
-                // Update statistics
-                monitor.TotalChecks++;
-                if (result.Success)
-                {
-                    monitor.SuccessfulChecks++;
-                    monitor.LastUptime = result.CheckedAt;
-                    monitor.ConsecutiveFailures = 0;
-                }
-                else
-                {
-                    monitor.LastDowntime = result.CheckedAt;
-                    monitor.ConsecutiveFailures++;
-                }
+				monitor.TotalChecks++;
+				if (result.Success)
+				{
+					monitor.SuccessfulChecks++;
+					monitor.LastUptime = result.CheckedAt;
+					monitor.ConsecutiveFailures = 0;
+				}
+				else
+				{
+					monitor.LastDowntime = result.CheckedAt;
+					monitor.ConsecutiveFailures++;
+				}
 
-                // Calculate uptime percentage
-                monitor.UptimePercentage = monitor.TotalChecks > 0
-                    ? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
-                    : 0;
+				monitor.UptimePercentage = monitor.TotalChecks > 0
+					? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
+					: 0;
 
-                // Mark entity as modified
-                dbContext.Entry(monitor).State = EntityState.Modified;
+				dbContext.Entry(monitor).State = EntityState.Modified;
 
-                // Update or create certificate record if SSL check was performed
-                if (result.CertificateResult != null && result.CertificateResult.Success)
-                {
-                    var existingCert = monitor.Certificate;
-                    if (existingCert == null || existingCert.Thumbprint != result.CertificateResult.Thumbprint)
-                    {
-                        _logger.LogInformation($"Creating new certificate record for monitor {monitor.Id}");
-                        // Create new certificate record
-                        var newCert = new Certificate
-                        {
-                            CommonName = result.CertificateResult.CommonName ?? string.Empty,
-                            Thumbprint = result.CertificateResult.Thumbprint ?? string.Empty,
-                            IssuedDate = result.CertificateResult.IssuedDate,
-                            ExpiryDate = result.CertificateResult.ExpiryDate,
-                            Issuer = result.CertificateResult.Issuer ?? string.Empty,
-                            Algorithm = result.CertificateResult.Algorithm ?? string.Empty,
-                            KeySize = result.CertificateResult.KeySize,
-                            Status = result.CertificateResult.Status,
-                            LastChecked = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        };
+				if (result.CertificateResult != null && result.CertificateResult.Success)
+				{
+					var certEntity = await UpsertCertificateAsync(dbContext, result.CertificateResult);
+					monitor.Certificate = certEntity;
+				}
 
-                        dbContext.Certificates.Add(newCert);
-                        monitor.Certificate = newCert;
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Updating existing certificate for monitor {monitor.Id}");
-                        // Update existing certificate
-                        existingCert.Status = result.CertificateResult.Status;
-                        existingCert.LastChecked = DateTime.UtcNow;
-                        existingCert.UpdatedAt = DateTime.UtcNow;
-                        dbContext.Entry(existingCert).State = EntityState.Modified;
-                    }
-                }
-
-                _logger.LogInformation($"Monitor {monitor.Id} update prepared successfully");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error updating monitor {monitor.Id}: {ex.Message}");
-                throw;
-            }
-        }
-
-        public async Task<List<UrlMonitor>> GetAllMonitorsAsync()
+				_logger.LogInformation($"Monitor {monitor.Id} update prepared successfully");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, $"Error updating monitor {monitor.Id}: {ex.Message}");
+				throw;
+			}
+		}
+		public async Task<List<UrlMonitor>> GetAllMonitorsAsync()
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
