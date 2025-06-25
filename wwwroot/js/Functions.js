@@ -402,7 +402,7 @@ async function addUrlMonitor() {
 function checkAllUrls() {
     // Real implementation would check all URLs via API
     urlMonitors.forEach(monitor => {
-        monitor.status = 'checking';
+        monitor.urlStatus = 'checking';
         monitor.lastCheck = new Date().toISOString();
     });
     loadUrlMonitors();
@@ -458,78 +458,80 @@ function showNotification(message, type = 'info') {
 // API integration functions
 async function loadDashboardData() {
     showLoadingOverlay(true); // Show overlay while loading
+
     try {
-        // Use the correct API endpoint (adjust if needed)
         const response = await fetch('/api/monitoring/dashboard-data');
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
 
         const dashboardData = await response.json();
 
-        // Update metrics using API data
-        updateMetricsFromAPI(dashboardData);
-
-        // Update URL monitors display
-        updateUrlMonitorsFromAPI(dashboardData.Monitors || []);
-
-        // Update charts
+        // Update metrics, monitors, and charts
+        updateMetricsFromApi(dashboardData);
+        updateUrlMonitorsFromApi(dashboardData.monitors || []);
         updateCharts();
 
         return dashboardData;
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        // Show error state, but do not clear previous data
-        showErrorState();
+        // Optionally show error UI
     } finally {
         showLoadingOverlay(false); // Hide overlay after loading
     }
 }
 
+function updateMetricsFromApi(dashboardData) {
+    const stats = dashboardData.stats || {};
 
-function updateMetricsFromAPI(dashboardData) {
-    const stats = dashboardData.Stats || {};
+    const urlsUp = stats.upMonitors || 0;
+    const urlsDown = stats.downMonitors || 0;
 
-    // Update URL metrics from API
-    const urlsUp = stats.UpMonitors || 0;
-    const urlsDown = stats.DownMonitors || 0;
+    const certsExpiring = dashboardData.expiringCertificates
+        ? dashboardData.expiringCertificates.length
+        : 0;
 
-    // Certificate metrics from API
-    const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
-    const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
-        m.Certificate && m.Certificate.DaysUntilExpiry <= 0
-    ).length : 0;
+    const certsExpired = dashboardData.monitors
+        ? dashboardData.monitors.filter(m =>
+            m.certificate && m.certificate.daysUntilExpiry <= 0
+        ).length
+        : 0;
 
-    // Update metric cards
     document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
     document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
     document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
     document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
+
+    firstLoad = false;
 }
 
-function updateUrlMonitorsFromAPI(monitors) {
+function updateUrlMonitorsFromApi(monitors) {
     const container = document.getElementById('urlMonitorContainer');
 
-    if (monitors.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No URL monitors configured. Click "Add URL Monitor" to get started.</p>';
+    if (!monitors || monitors.length === 0) {
+        container.innerHTML = `
+            <p style="text-align: center; color: var(--text-muted);">
+                No URL monitors configured. Click "Add URL Monitor" to get started.
+            </p>
+        `;
         return;
     }
+    console.log('Sample monitor:', monitors[0]);
 
     container.innerHTML = monitors.map(monitor => {
-        const statusClass = `status-${monitor.Status.toLowerCase()}`;
-        const statusText = monitor.Status.charAt(0).toUpperCase() + monitor.Status.slice(1);
-        const lastCheck = new Date(monitor.LastCheck).toLocaleString();
-
+        const statusClass = `status-${monitor.urlStatus.toLowerCase()}`;
+        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStatus.slice(1);
+        const lastCheck = new Date(monitor.lastCheck).toLocaleString();
         const certInfo = renderCertificateInfo(monitor);
 
         return `
             <div class="url-monitor-item ${statusClass}">
                 <div class="url-info">
-                    <strong>${monitor.Name}</strong>
+                    <strong>${monitor.name}</strong>
                     <div class="url-details">
-                        <span class="url">${monitor.Url}</span>
+                        <span class="url">${monitor.url}</span>
                         <span class="status ${statusClass}">${statusText}</span>
-                        <span class="response-time">${monitor.ResponseTime ? `${monitor.ResponseTime}ms` : '—'}</span>
+                        <span class="response-time">${monitor.responseTime ? `${monitor.responseTime}ms` : '—'}</span>
                     </div>
                 </div>
                 ${certInfo}
@@ -539,55 +541,35 @@ function updateUrlMonitorsFromAPI(monitors) {
 }
 
 function renderCertificateInfo(monitor) {
-    let certInfo = '';
-
-    if (monitor.Certificate) {
-        const cert = monitor.Certificate;
-        const certClass = cert.DaysUntilExpiry <= 0 ? 'cert-expired' :
-            cert.DaysUntilExpiry <= 30 ? 'cert-expiring' : 'cert-valid';
-
-        const daysText = cert.DaysUntilExpiry <= 0 ? 'Expired' :
-            cert.DaysUntilExpiry === 1 ? '1 day' :
-                `${cert.DaysUntilExpiry} days`;
-
-        const expiryDate = new Date(cert.ExpiryDate).toLocaleDateString();
-
-        certInfo = `
-            <div class="cert-info ${certClass}">
-                <span class="cert-name">${cert.Subject || monitor.Name}</span>
-                <span class="cert-expiry">Expires: ${expiryDate}</span>
-                <span class="cert-days">${daysText}</span>
-            </div>
-        `;
-    } else if (monitor.Url && monitor.Url.startsWith('https://')) {
-        certInfo = '<div class="cert-info cert-none">No certificate info</div>';
+    if (!monitor.certificate && monitor.url?.startsWith('https://')) {
+        return '<div class="cert-info cert-none">No certificate info</div>';
     }
 
-    return certInfo;
+    if (!monitor.certificate) return '';
+
+    const cert = monitor.certificate;
+    const certClass =
+        cert.daysUntilExpiry <= 0 ? 'cert-expired' :
+            cert.daysUntilExpiry <= 30 ? 'cert-expiring' : 'cert-valid';
+
+    const daysText =
+        cert.daysUntilExpiry <= 0 ? 'Expired' :
+            cert.daysUntilExpiry === 1 ? '1 day' :
+                `${cert.daysUntilExpiry} days`;
+
+    const expiryDate = new Date(cert.expiryDate).toLocaleDateString();
+
+    return `
+        <div class="cert-info ${certClass}">
+            <span class="cert-name">${cert.subject || monitor.name}</span>
+            <span class="cert-expiry">Expires: ${expiryDate}</span>
+            <span class="cert-days">${daysText}</span>
+        </div>
+    `;
 }
+
 let firstLoad = true;
 
-function updateMetricsFromAPI(dashboardData) {
-    const stats = dashboardData.Stats || {};
-
-    // Update URL metrics from API
-    const urlsUp = stats.UpMonitors || 0;
-    const urlsDown = stats.DownMonitors || 0;
-
-    // Certificate metrics from API
-    const certsExpiring = dashboardData.ExpiringCertificates ? dashboardData.ExpiringCertificates.length : 0;
-    const certsExpired = dashboardData.Monitors ? dashboardData.Monitors.filter(m =>
-        m.Certificate && m.Certificate.DaysUntilExpiry <= 0
-    ).length : 0;
-
-    // Update metric cards
-    document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
-    document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
-    document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
-    document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
-
-    firstLoad = false;
-}
 
 // Data loading functions
 function loadMetrics() {
@@ -601,8 +583,8 @@ function loadMetrics() {
     }).length;
 
     // URL metrics (local data - will be overridden by API)
-    const urlsUp = urlMonitors.filter(m => m.status === 'up').length;
-    const urlsDown = urlMonitors.filter(m => ['down', 'error', 'timeout'].includes(m.status)).length;
+    const urlsUp = urlMonitors.filter(m => m.urlStatus === 'up').length;
+    const urlsDown = urlMonitors.filter(m => ['down', 'error', 'timeout'].includes(m.urlStatus)).length;
     const certsExpiring = urlMonitors.filter(m =>
         m.sslCert && m.sslCert.daysUntilExpiry <= 30 && m.sslCert.daysUntilExpiry > 0
     ).length;
@@ -664,8 +646,8 @@ function loadUrlMonitors() {
     }
 
     container.innerHTML = urlMonitors.map(monitor => {
-        const statusClass = `status-${monitor.status}`;
-        const statusText = monitor.status.charAt(0).toUpperCase() + monitor.status.slice(1);
+        const statusClass = `status-${monitor.urlStatus}`;
+        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStatus.slice(1);
         const lastCheck = new Date(monitor.lastCheck).toLocaleString();
 
         let certInfo = '';
@@ -1122,7 +1104,7 @@ function updateDeviceStatus(deviceId, status, responseTime) {
 function updateUrlMonitorStatus(monitorId, status, responseTime) {
     const monitor = urlMonitors.find(m => m.id === monitorId);
     if (monitor) {
-        monitor.status = status;
+        monitor.urlStatus = status;
         monitor.responseTime = responseTime;
         monitor.lastCheck = new Date().toISOString();
         loadMetrics();

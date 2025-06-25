@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Beacon.Data;
 using Beacon.Models;
 using Beacon.Services;
-
+using System.Net.WebSockets;
 var builder = WebApplication.CreateBuilder(args);
 
 // Database configuration
@@ -93,5 +93,25 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 app.MapRazorPages();
 app.MapBlazorHub();
+app.UseWebSockets();
+app.Use(async (context, next) =>
+{
+	if (context.Request.Path == "/ws")
+	{
+		if (context.WebSockets.IsWebSocketRequest)
+		{
+			var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+			//await HandleWebSocket(context, webSocket); // your logic here
+		}
+		else
+		{
+			context.Response.StatusCode = 400;
+		}
+	}
+	else
+	{
+		await next();
+	}
+});
 
 app.Run();

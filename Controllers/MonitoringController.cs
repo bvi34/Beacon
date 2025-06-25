@@ -7,7 +7,7 @@ using Beacon.Data;
 namespace Beacon.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/monitoring")]
     public class UrlMonitorController : ControllerBase
     {
         private readonly IUrlMonitoringService _urlMonitoringService;
@@ -50,6 +50,31 @@ namespace Beacon.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+        [HttpPost("monitors")]
+        public async Task<IActionResult> AddMonitor([FromBody] UrlMonitorStatusDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Url))
+                return BadRequest("URL is required.");
+
+            var newMonitor = new UrlMonitor
+            {
+                Name = dto.Name,
+                Url = dto.Url,
+                IsActive = dto.IsActive,
+                MonitorSsl = dto.MonitorSsl,
+                TimeoutSeconds = dto.TimeoutSeconds,
+                CheckIntervalMinutes = dto.CheckIntervalMinutes,
+                Description = dto.Description,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.UrlMonitors.Add(newMonitor);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(newMonitor);
+        }
+
+
 
         [HttpGet("monitors/{id}")]
         public async Task<ActionResult<UrlMonitor>> GetMonitor(int id)
@@ -145,17 +170,37 @@ namespace Beacon.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-
         [HttpGet("dashboard-data")]
         public async Task<ActionResult<DashboardData>> GetDashboardData()
         {
             try
             {
                 var stats = await _urlMonitoringService.GetMonitoringStatsAsync();
+
                 var monitors = await _dbContext.UrlMonitors
                     .Include(m => m.Certificate)
                     .OrderBy(m => m.Name)
                     .ToListAsync();
+
+                var monitorDtos = monitors.Select(m => new UrlMonitorStatusDto
+                {
+                    Name = m.Name,
+                    Url = m.Url,
+                    IsActive = m.IsActive,
+                    MonitorSsl = m.MonitorSsl,
+                    TimeoutSeconds = m.TimeoutSeconds,
+                    CheckIntervalMinutes = m.CheckIntervalMinutes,
+                    Description = m.Description,
+
+                    UrlStatus = m.Status.ToString(), // from DB
+                    LastChecked = m.LastChecked, // from DB
+
+                    Certificate = m.Certificate == null ? null : new CertificateDto
+                    {
+                        ExpiryDate = m.Certificate.ExpiryDate
+                    }
+                }).ToList();
+
                 var expiringCerts = await _dbContext.Certificates
                     .Where(c => c.ExpiryDate <= DateTime.UtcNow.AddDays(30) && c.ExpiryDate > DateTime.UtcNow)
                     .Include(c => c.UrlMonitors)
@@ -166,7 +211,7 @@ namespace Beacon.Controllers
                 var dashboardData = new DashboardData
                 {
                     Stats = stats,
-                    Monitors = monitors,
+                    Monitors = monitorDtos,
                     ExpiringCertificates = expiringCerts,
                     LastUpdated = DateTime.UtcNow
                 };
@@ -182,9 +227,41 @@ namespace Beacon.Controllers
     }
 	public class DashboardData
 	{
-		public MonitoringStats Stats { get; set; } = new();
-		public List<UrlMonitor> Monitors { get; set; } = new();
-		public List<Certificate> ExpiringCertificates { get; set; } = new();
+		public MonitoringStats Stats { get; set; }
+		public List<UrlMonitorStatusDto> Monitors { get; set; } // <-- Changed from List<UrlMonitor>
+		public List<Certificate> ExpiringCertificates { get; set; }
+		public DateTime LastUpdated { get; set; }
+	}
+
+	public class UrlMonitorStatusDto
+	{
+		// Configuration
+		public string Name { get; set; }
+		public string Url { get; set; }
+		public bool IsActive { get; set; }
+		public bool MonitorSsl { get; set; }
+		public int TimeoutSeconds { get; set; }
+		public int CheckIntervalMinutes { get; set; }
+		public string? Description { get; set; }
+
+		// Live / Persisted Status
+		public string UrlStatus { get; set; } // Status from DB
+		public DateTime? LastChecked { get; set; }
+
+		public CertificateDto? Certificate { get; set; }
+	}
+
+	public class CertificateDto
+	{
+        public int Id { get; set; }
+		public DateTime? ExpiryDate { get; set; }
+		public bool IsExpired => ExpiryDate.HasValue && ExpiryDate.Value <= DateTime.UtcNow;
+	}
+	public class DashboardDataDto
+	{
+		public MonitoringStats? Stats { get; set; }
+		public List<UrlMonitorStatusDto>? Monitors { get; set; }
+		public List<CertificateDto>? ExpiringCertificates { get; set; }
 		public DateTime LastUpdated { get; set; }
 	}
 }

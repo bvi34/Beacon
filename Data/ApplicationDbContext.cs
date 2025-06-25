@@ -73,4 +73,4 @@ namespace Beacon.Data
             });
         }
     }
-}
+};
