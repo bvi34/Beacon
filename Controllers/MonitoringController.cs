@@ -3,6 +3,10 @@ using Beacon.Services;
 using Beacon.Models;
 using Microsoft.EntityFrameworkCore;
 using Beacon.Data;
+using System.Diagnostics;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Beacon.Controllers
 {
@@ -75,8 +79,107 @@ namespace Beacon.Controllers
         }
 
 
+		[HttpPost("check-all")]
+		public async Task<List<object>> CheckAllMonitors()
+        {
+			var monitors = await _dbContext.UrlMonitors
+				.Where(m => m.IsActive)
+				.ToListAsync();
 
-        [HttpGet("monitors/{id}")]
+			var results = new List<object>();
+
+			foreach (var monitor in monitors)
+			{
+				monitor.TotalChecks++;
+				monitor.UpdatedAt = DateTime.UtcNow;
+				monitor.LastChecked = DateTime.UtcNow;
+
+				var sw = Stopwatch.StartNew();
+				try
+				{
+					using var handler = new HttpClientHandler
+					{
+						ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+					};
+					using var client = new HttpClient(handler)
+					{
+						Timeout = TimeSpan.FromSeconds(monitor.TimeoutSeconds)
+					};
+
+					var response = await client.GetAsync(monitor.Url);
+					sw.Stop();
+
+					monitor.LastResponseCode = (int)response.StatusCode;
+					monitor.LastResponseTimeMs = sw.Elapsed.TotalMilliseconds;
+					monitor.LastError = "";
+
+					if (response.IsSuccessStatusCode)
+					{
+						monitor.Status = UrlStatus.Up;
+						monitor.LastUptime = DateTime.UtcNow;
+						monitor.SuccessfulChecks++;
+						monitor.ConsecutiveFailures = 0;
+					}
+					else
+					{
+						monitor.Status = UrlStatus.Down;
+						monitor.LastDowntime = DateTime.UtcNow;
+						monitor.ConsecutiveFailures++;
+					}
+
+					// Optional SSL check
+					if (monitor.IsHttps && monitor.MonitorSsl)
+					{
+						var uri = new Uri(monitor.Url);
+						using var tcpClient = new TcpClient();
+						await tcpClient.ConnectAsync(uri.Host, 443);
+						using var sslStream = new SslStream(tcpClient.GetStream(), false, (s, cert, chain, errors) => true);
+						await sslStream.AuthenticateAsClientAsync(uri.Host);
+
+						var cert = new X509Certificate2(sslStream.RemoteCertificate);
+						monitor.Certificate = new Certificate
+						{
+							CommonName = cert.GetNameInfo(X509NameType.SimpleName, false),
+							ExpiryDate = cert.NotAfter,
+							Issuer = cert.Issuer,
+							Thumbprint = cert.SerialNumber,
+							CreatedAt = DateTime.UtcNow
+						};
+					}
+				}
+				catch (Exception ex)
+				{
+					sw.Stop();
+					monitor.Status = UrlStatus.Error;
+					monitor.LastResponseCode = null;
+					monitor.LastResponseTimeMs = null;
+					monitor.LastDowntime = DateTime.UtcNow;
+					monitor.LastError = ex.Message;
+					monitor.ConsecutiveFailures++;
+				}
+
+				monitor.UptimePercentage = monitor.TotalChecks > 0
+					? (double)monitor.SuccessfulChecks / monitor.TotalChecks * 100
+					: 0;
+
+				results.Add(new
+				{
+					monitor.Id,
+					monitor.Name,
+					monitor.Url,
+					monitor.Status,
+					monitor.LastResponseCode,
+					monitor.LastResponseTimeMs,
+					monitor.LastError,
+					monitor.UptimePercentage,
+					monitor.ConsecutiveFailures
+				});
+			}
+
+			await _dbContext.SaveChangesAsync();
+			return results;
+		}
+		[HttpGet("monitors/{id}")]
         public async Task<ActionResult<UrlMonitor>> GetMonitor(int id)
         {
             try
@@ -224,6 +327,7 @@ namespace Beacon.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
     }
 	public class DashboardData
 	{
@@ -253,10 +357,15 @@ namespace Beacon.Controllers
 
 	public class CertificateDto
 	{
-        public int Id { get; set; }
+		public int Id { get; set; }
 		public DateTime? ExpiryDate { get; set; }
 		public bool IsExpired => ExpiryDate.HasValue && ExpiryDate.Value <= DateTime.UtcNow;
+
+		public int? DaysUntilExpiry => ExpiryDate.HasValue
+			? (int?)(ExpiryDate.Value - DateTime.UtcNow).TotalDays
+			: null;
 	}
+
 	public class DashboardDataDto
 	{
 		public MonitoringStats? Stats { get; set; }

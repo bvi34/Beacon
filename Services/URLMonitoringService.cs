@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Sockets;
 using System;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Beacon.Services
 {
@@ -333,8 +334,10 @@ namespace Beacon.Services
                 .OrderBy(m => m.Name)
                 .ToListAsync();
         }
+		
 
-        public async Task<MonitoringStats> GetMonitoringStatsAsync()
+
+		public async Task<MonitoringStats> GetMonitoringStatsAsync()
         {
             using var scope = _serviceProvider.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

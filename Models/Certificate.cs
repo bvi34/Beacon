@@ -45,10 +45,21 @@ namespace Beacon.Models
         // Computed properties
         public bool IsExpired => DateTime.UtcNow > ExpiryDate;
         public bool IsExpiringSoon => DateTime.UtcNow.AddDays(30) > ExpiryDate && !IsExpired;
-        public int DaysUntilExpiry => (int)(ExpiryDate - DateTime.UtcNow).TotalDays;
+		public int DaysUntilExpiry
+		{
+			get
+			{
+				if (ExpiryDate == DateTime.MinValue)
+					return -1; // Or throw, or return 0 if you prefer
 
-        // Helper property to determine certificate type
-        public bool IsDeviceCertificate => DeviceId.HasValue;
+				var utcExpiry = DateTime.SpecifyKind(ExpiryDate, DateTimeKind.Utc);
+				return (int)(utcExpiry - DateTime.UtcNow).TotalDays;
+			}
+		}
+
+
+		// Helper property to determine certificate type
+		public bool IsDeviceCertificate => DeviceId.HasValue;
         public bool IsUrlCertificate => UrlMonitors.Any();
     }
 

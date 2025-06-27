@@ -381,7 +381,8 @@ async function addUrlMonitor() {
         checkIntervalMinutes: parseInt(formData.get('checkInterval')),
         timeoutSeconds: parseInt(formData.get('timeout')),
         isActive: true,
-        monitorSsl: true
+        monitorSsl: true,
+        UrlStatus: 'Unknown'
     };
 
     try {
@@ -408,8 +409,24 @@ function checkAllUrls() {
     loadUrlMonitors();
 
     // Real API call would go here
-    // checkAllUrlsAPI();
+    checkAllUrlsAPI();
 }
+async function checkAllUrlsAPI() {
+    try {
+        const response = await fetch('/api/monitoring/check-all', { method: 'POST' });
+        console.log(response);
+        if (!response.ok) throw new Error('Failed to check URLs');
+
+        const results = await response.json();
+        console.table(results);
+        showNotification('All monitors checked successfully.', 'success');
+        await loadDashboardData();
+    } catch (e) {
+        showNotification('Check failed: ' + e.message, 'error');
+        console.error(e);
+    }
+}
+
 
 // Notification system
 function showNotification(message, type = 'info') {
@@ -553,9 +570,11 @@ function renderCertificateInfo(monitor) {
             cert.daysUntilExpiry <= 30 ? 'cert-expiring' : 'cert-valid';
 
     const daysText =
-        cert.daysUntilExpiry <= 0 ? 'Expired' :
-            cert.daysUntilExpiry === 1 ? '1 day' :
-                `${cert.daysUntilExpiry} days`;
+        cert.daysUntilExpiry < 0 ? `Expired ${Math.abs(cert.daysUntilExpiry)} days ago` :
+            cert.daysUntilExpiry === 0 ? 'Expires today' :
+                cert.daysUntilExpiry === 1 ? '1 day' :
+                    `${cert.daysUntilExpiry} days`;
+    console.log('Days Left:', daysText);
 
     const expiryDate = new Date(cert.expiryDate).toLocaleDateString();
 
