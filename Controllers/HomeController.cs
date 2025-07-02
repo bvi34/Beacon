@@ -17,6 +17,7 @@ namespace Beacon.Controllers
 			var devices = await _context.Devices
 				.Include(d => d.MonitoredPorts)
 				.Include(d => d.Certificates)
+    
 				.ToListAsync();
 
 			return View(devices);

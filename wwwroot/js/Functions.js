@@ -500,9 +500,12 @@ async function loadDashboardData() {
 
 function updateMetricsFromApi(dashboardData) {
     const stats = dashboardData.stats || {};
-
+    const recent = stats.totalDevicesFound || 0;
+    const devices = stats.onlineDevices || 0;
     const urlsUp = stats.upMonitors || 0;
     const urlsDown = stats.downMonitors || 0;
+    const down = stats.offlineDevices || 0;
+
 
     const certsExpiring = dashboardData.expiringCertificates
         ? dashboardData.expiringCertificates.length
@@ -518,7 +521,9 @@ function updateMetricsFromApi(dashboardData) {
     document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
     document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
     document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
-
+    document.querySelector('.metric-card.total .metric-number').textContent = devices;
+    document.querySelector('.metric-card.warning .metric-number').textContent = recent;
+    document.querySelector('.metric-card.offline .metric-number').textContent = down;
     firstLoad = false;
 }
 
@@ -537,7 +542,7 @@ function updateUrlMonitorsFromApi(monitors) {
 
     container.innerHTML = monitors.map(monitor => {
         const statusClass = `status-${monitor.urlStatus.toLowerCase()}`;
-        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStatus.slice(1);
+        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStat\+us.sl+ice(1);
         const lastCheck = new Date(monitor.lastCheck).toLocaleString();
         const certInfo = renderCertificateInfo(monitor);
 
