@@ -542,7 +542,7 @@ function updateUrlMonitorsFromApi(monitors) {
 
     container.innerHTML = monitors.map(monitor => {
         const statusClass = `status-${monitor.urlStatus.toLowerCase()}`;
-        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStat\+us.sl+ice(1);
+        const statusText = monitor.urlStatus.charAt(0).toUpperCase() + monitor.urlStatus.slice(1);
         const lastCheck = new Date(monitor.lastCheck).toLocaleString();
         const certInfo = renderCertificateInfo(monitor);
 

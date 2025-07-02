@@ -310,13 +310,20 @@ namespace Beacon.Controllers
                     .OrderBy(c => c.ExpiryDate)
                     .Take(10)
                     .ToListAsync();
+                var devices = await _dbContext.Devices
+    .Include(d => d.MonitoredPorts)
+    .OrderBy(d => d.Hostname)
+    .ToListAsync(); // Assuming you want to include devices as well
 
                 var dashboardData = new DashboardData
                 {
                     Stats = stats,
                     Monitors = monitorDtos,
                     ExpiringCertificates = expiringCerts,
-                    LastUpdated = DateTime.UtcNow
+                    LastUpdated = DateTime.UtcNow,
+                    Devices = devices
+                    
+
                 };
 
                 return Ok(dashboardData);
@@ -335,6 +342,7 @@ namespace Beacon.Controllers
 		public List<UrlMonitorStatusDto> Monitors { get; set; } // <-- Changed from List<UrlMonitor>
 		public List<Certificate> ExpiringCertificates { get; set; }
 		public DateTime LastUpdated { get; set; }
+        public List<Device>? Devices { get; set; } // Assuming you want to include devices as well
 	}
 
 	public class UrlMonitorStatusDto
