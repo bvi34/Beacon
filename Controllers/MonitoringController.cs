@@ -273,69 +273,60 @@ namespace Beacon.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
-        [HttpGet("dashboard-data")]
-        public async Task<ActionResult<DashboardData>> GetDashboardData()
-        {
-            try
-            {
-                var stats = await _urlMonitoringService.GetMonitoringStatsAsync();
+		[HttpGet("dashboard-data")]
+		public async Task<ActionResult<DashboardData>> GetDashboardData()
+		{
+			try
+			{
+				var stats = await _urlMonitoringService.GetMonitoringStatsAsync();
 
-                var monitors = await _dbContext.UrlMonitors
-                    .Include(m => m.Certificate)
-                    .OrderBy(m => m.Name)
-                    .ToListAsync();
+				var monitors = await _dbContext.UrlMonitors
+					.Include(m => m.Certificate)
+					.OrderBy(m => m.Name)
+					.ToListAsync();
 
-                var monitorDtos = monitors.Select(m => new UrlMonitorStatusDto
-                {
-                    Name = m.Name,
-                    Url = m.Url,
-                    IsActive = m.IsActive,
-                    MonitorSsl = m.MonitorSsl,
-                    TimeoutSeconds = m.TimeoutSeconds,
-                    CheckIntervalMinutes = m.CheckIntervalMinutes,
-                    Description = m.Description,
+				var monitorDtos = monitors.Select(m => new UrlMonitorStatusDto
+				{
+					Name = m.Name,
+					Url = m.Url,
+					IsActive = m.IsActive,
+					MonitorSsl = m.MonitorSsl,
+					TimeoutSeconds = m.TimeoutSeconds,
+					CheckIntervalMinutes = m.CheckIntervalMinutes,
+					Description = m.Description,
+					UrlStatus = m.Status.ToString(),
+					LastChecked = m.LastChecked,
+					Certificate = m.Certificate == null ? null : new CertificateDto
+					{
+						ExpiryDate = m.Certificate.ExpiryDate,
+					}
+				}).ToList();
 
-                    UrlStatus = m.Status.ToString(), // from DB
-                    LastChecked = m.LastChecked, // from DB
+				var expiringCerts = await _dbContext.Certificates
+					.Where(c => c.ExpiryDate <= DateTime.UtcNow.AddDays(30) && c.ExpiryDate > DateTime.UtcNow)
+					.Include(c => c.UrlMonitors)
+					.OrderBy(c => c.ExpiryDate)
+					.Take(10)
+					.ToListAsync();
 
-                    Certificate = m.Certificate == null ? null : new CertificateDto
-                    {
-                        ExpiryDate = m.Certificate.ExpiryDate
-                    }
-                }).ToList();
+				var dashboardData = new DashboardData
+				{
+					Stats = stats, // Use the stats directly from the service
+					Monitors = monitorDtos,
+					ExpiringCertificates = expiringCerts,
+					LastUpdated = DateTime.UtcNow,
+				};
 
-                var expiringCerts = await _dbContext.Certificates
-                    .Where(c => c.ExpiryDate <= DateTime.UtcNow.AddDays(30) && c.ExpiryDate > DateTime.UtcNow)
-                    .Include(c => c.UrlMonitors)
-                    .OrderBy(c => c.ExpiryDate)
-                    .Take(10)
-                    .ToListAsync();
-                var devices = await _dbContext.Devices
-    .Include(d => d.MonitoredPorts)
-    .OrderBy(d => d.Hostname)
-    .ToListAsync(); // Assuming you want to include devices as well
+				return Ok(dashboardData);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error retrieving dashboard data: {Message}", ex.Message);
+				return StatusCode(500, new { error = ex.Message, details = ex.ToString() }); // This will show the real error
+			}
+		}
 
-                var dashboardData = new DashboardData
-                {
-                    Stats = stats,
-                    Monitors = monitorDtos,
-                    ExpiringCertificates = expiringCerts,
-                    LastUpdated = DateTime.UtcNow,
-                    Devices = devices
-                    
-
-                };
-
-                return Ok(dashboardData);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving dashboard data");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-    }
+	}
 	public class DashboardData
 	{
 		public MonitoringStats Stats { get; set; }

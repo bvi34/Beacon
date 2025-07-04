@@ -23,7 +23,8 @@ namespace Beacon.Models
         // Navigation properties
         public List<MonitoredPort> MonitoredPorts { get; set; } = new();
         public List<Certificate> Certificates { get; set; } = new();
-    }
+		//public bool IsOnline { get; internal set; }
+	}
 
     public enum DeviceStatus
     {

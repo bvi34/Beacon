@@ -91,7 +91,7 @@ function addDevice() {
 
     devices.push(device);
     closeAddDeviceModal();
-    loadMetrics();
+    updateMetricsFromApi(dashboardData)
     loadRecentDevices();
 
     // Real device ping would go here
@@ -475,7 +475,7 @@ function showNotification(message, type = 'info') {
 // API integration functions
 async function loadDashboardData() {
     showLoadingOverlay(true); // Show overlay while loading
-
+    console.log("Dashboard being loaded");
     try {
         const response = await fetch('/api/monitoring/dashboard-data');
         if (!response.ok) {
@@ -500,30 +500,36 @@ async function loadDashboardData() {
 
 function updateMetricsFromApi(dashboardData) {
     const stats = dashboardData.stats || {};
-    const recent = stats.totalDevicesFound || 0;
-    const devices = stats.onlineDevices || 0;
+    const totalDevices = stats.totalDevices || 0;      // 8
+    const onlineDevices = stats.onlineDevices || 0;    // 7
+    const offlineDevices = stats.offlineDevices || 0;  // 1
     const urlsUp = stats.upMonitors || 0;
     const urlsDown = stats.downMonitors || 0;
-    const down = stats.offlineDevices || 0;
-
 
     const certsExpiring = dashboardData.expiringCertificates
         ? dashboardData.expiringCertificates.length
         : 0;
-
     const certsExpired = dashboardData.monitors
         ? dashboardData.monitors.filter(m =>
             m.certificate && m.certificate.daysUntilExpiry <= 0
         ).length
         : 0;
 
+    // Fix the assignments:
     document.querySelector('.metric-card.urls-up .metric-number').textContent = urlsUp;
     document.querySelector('.metric-card.urls-down .metric-number').textContent = urlsDown;
     document.querySelector('.metric-card.cert-expiring .metric-number').textContent = certsExpiring;
     document.querySelector('.metric-card.cert-expired .metric-number').textContent = certsExpired;
-    document.querySelector('.metric-card.total .metric-number').textContent = devices;
-    document.querySelector('.metric-card.warning .metric-number').textContent = recent;
-    document.querySelector('.metric-card.offline .metric-number').textContent = down;
+
+    // Fix these assignments:
+    document.querySelector('.metric-card.total .metric-number').textContent = totalDevices;    // Total Devices = 8
+    document.querySelector('.metric-card.warning .metric-number').textContent = onlineDevices; // Devices Online = 7
+    document.querySelector('.metric-card.offline .metric-number').textContent = offlineDevices; // Devices Offline = 1
+
+    // What should "Recently Added" show? If it's supposed to show recently added devices, 
+    // you need that data from your API. For now, I'll assume it should be 0:
+    // document.querySelector('.metric-card.recently-added .metric-number').textContent = 0;
+
     firstLoad = false;
 }
 
@@ -563,7 +569,7 @@ function updateUrlMonitorsFromApi(monitors) {
 }
 
 function renderCertificateInfo(monitor) {
-    if (!monitor.certificate && monitor.url?.startsWith('https://')) {
+    if (!monitor.certificate) {
         return '<div class="cert-info cert-none">No certificate info</div>';
     }
 
@@ -855,7 +861,7 @@ async function loadDevicesFromAPI() {
             responseTime: null
         }));
 
-        loadMetrics();
+        updateMetricsFromApi(dashboardData)
         loadRecentDevices();
     } catch (error) {
         console.error('Error loading devices:', error);
@@ -887,27 +893,23 @@ async function loadAllCertificates() {
     }
 }
 
-        // Initialize the application
+// Initialize the application
 function initialize() {
     initializeTheme();
-    loadMetrics();
+    // Remove this line: updateMetricsFromApi(dashboardData)
     loadRecentDevices();
     loadUrlMonitors();
-
     // Show overlay on first load
     showLoadingOverlay(true);
-
     // Try to load real data from API
     loadDashboardData().finally(() => {
         showLoadingOverlay(false);
     });
-
     // Set up auto-refresh for real data
     setInterval(() => {
         loadDashboardData();
     }, 30000); // Refresh every 30 seconds
 }
-
 // 5. CERTIFICATE MANAGEMENT
 // ============================================================================
 
@@ -1120,7 +1122,7 @@ function updateDeviceStatus(deviceId, status, responseTime) {
         device.status = status;
         device.responseTime = responseTime;
         device.lastSeen = new Date().toISOString();
-        loadMetrics();
+        updateMetricsFromApi(dashboardData)
         loadRecentDevices();
     }
 }
@@ -1131,7 +1133,7 @@ function updateUrlMonitorStatus(monitorId, status, responseTime) {
         monitor.urlStatus = status;
         monitor.responseTime = responseTime;
         monitor.lastCheck = new Date().toISOString();
-        loadMetrics();
+        updateMetricsFromApi(dashboardData)
         loadUrlMonitors();
     }
 }
@@ -1166,7 +1168,8 @@ function isValidUrl(url) {
     try {
         new URL(url);
         return true;
-    } catch {
+    }
+    catch (error) {
         return false;
     }
 }
@@ -1176,5 +1179,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initialize();
     initializeWebSocket();
 });
-        // Start the application when page loads
-        document.addEventListener('DOMContentLoaded', initialize);
+// Start the application when page loads
+document.addEventListener('DOMContentLoaded', initialize);

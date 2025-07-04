@@ -344,7 +344,7 @@ namespace Beacon.Services
 
             var monitors = await dbContext.UrlMonitors.ToListAsync();
             var certificates = await dbContext.Certificates.ToListAsync();
-
+            var devices = await dbContext.Devices.ToListAsync();
             // Get monitors with response times for average calculation
             var monitorsWithResponseTimes = monitors.Where(m => m.LastResponseTimeMs.HasValue).ToList();
 
@@ -359,9 +359,11 @@ namespace Beacon.Services
                 ValidCertificates = certificates.Count(c => c.Status == CertificateStatus.Valid),
                 ExpiredCertificates = certificates.Count(c => c.Status == CertificateStatus.Expired),
                 ExpiringSoonCertificates = certificates.Count(c => c.Status == CertificateStatus.ExpiringSoon),
-
-                // Safe average calculation - returns 0 if no elements
-                AverageResponseTime = monitorsWithResponseTimes.Any()
+				OnlineDevices = devices.Count(d => d.Status == DeviceStatus.Online),
+				OfflineDevices = devices.Count(d => d.Status != DeviceStatus.Online),
+				TotalDevices = devices.Count(),
+				// Safe average calculation - returns 0 if no elements
+				AverageResponseTime = monitorsWithResponseTimes.Any()
                     ? monitorsWithResponseTimes.Average(m => m.LastResponseTimeMs.Value)
                     : 0,
 
@@ -439,5 +441,8 @@ namespace Beacon.Services
         public int ExpiringSoonCertificates { get; set; }
         public double AverageResponseTime { get; set; }
         public double OverallUptimePercentage { get; set; }
-    }
+        public int? TotalDevices { get; set; }
+		public int? OnlineDevices { get; internal set; }
+		public int? OfflineDevices { get; internal set; }
+	}
 }
