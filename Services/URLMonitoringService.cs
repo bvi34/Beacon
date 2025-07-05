@@ -360,7 +360,8 @@ namespace Beacon.Services
                 ExpiredCertificates = certificates.Count(c => c.Status == CertificateStatus.Expired),
                 ExpiringSoonCertificates = certificates.Count(c => c.Status == CertificateStatus.ExpiringSoon),
 				OnlineDevices = devices.Count(d => d.Status == DeviceStatus.Online),
-				OfflineDevices = devices.Count(d => d.Status != DeviceStatus.Online),
+				OfflineDevices = devices.Count(d => d.Status == DeviceStatus.Offline),
+				DevicesWithIssues = devices.Count(d => d.Status == DeviceStatus.Warning || d.Status == DeviceStatus.Error || d.Status == DeviceStatus.Unknown),
 				TotalDevices = devices.Count(),
 				// Safe average calculation - returns 0 if no elements
 				AverageResponseTime = monitorsWithResponseTimes.Any()
@@ -444,5 +445,6 @@ namespace Beacon.Services
         public int? TotalDevices { get; set; }
 		public int? OnlineDevices { get; internal set; }
 		public int? OfflineDevices { get; internal set; }
+		public int? DevicesWithIssues { get; internal set; }
 	}
 }

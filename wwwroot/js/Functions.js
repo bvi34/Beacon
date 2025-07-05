@@ -505,7 +505,7 @@ function updateMetricsFromApi(dashboardData) {
     const offlineDevices = stats.offlineDevices || 0;  // 1
     const urlsUp = stats.upMonitors || 0;
     const urlsDown = stats.downMonitors || 0;
-
+    const devicesWithIssues = stats.devicesWithIssues || 0;
     const certsExpiring = dashboardData.expiringCertificates
         ? dashboardData.expiringCertificates.length
         : 0;
@@ -523,12 +523,10 @@ function updateMetricsFromApi(dashboardData) {
 
     // Fix these assignments:
     document.querySelector('.metric-card.total .metric-number').textContent = totalDevices;    // Total Devices = 8
-    document.querySelector('.metric-card.warning .metric-number').textContent = onlineDevices; // Devices Online = 7
+    document.querySelector('.metric-card.online .metric-number').textContent = onlineDevices; // Devices Online = 7
     document.querySelector('.metric-card.offline .metric-number').textContent = offlineDevices; // Devices Offline = 1
+    document.querySelector('.metric-card.warning .metric-number').textContent = devicesWithIssues;
 
-    // What should "Recently Added" show? If it's supposed to show recently added devices, 
-    // you need that data from your API. For now, I'll assume it should be 0:
-    // document.querySelector('.metric-card.recently-added .metric-number').textContent = 0;
 
     firstLoad = false;
 }
